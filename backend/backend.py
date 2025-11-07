@@ -220,51 +220,90 @@ def enhanced_detect_stance(claim, article_text, title=""):
         combined_text = f"{title} {article_text}".lower()
         claim_lower = claim.lower()
         
-        # More comprehensive keyword lists
+        # Enhanced keyword lists with more specific patterns
         strong_refuting_words = [
             'false', 'fake', 'hoax', 'debunked', 'disproven', 'myth', 'untrue',
             'misleading', 'misinformation', 'fact-check reveals false', 'not true',
-            'fabricated', 'baseless', 'unfounded', 'incorrect', 'wrong'
+            'fabricated', 'baseless', 'unfounded', 'incorrect', 'wrong',
+            'conspiracy theory', 'no evidence', 'lacks evidence', 'unproven',
+            'rating: false', 'mostly false', 'pants on fire', 'fiction'
         ]
         
         strong_supporting_words = [
             'confirmed', 'verified', 'proven', 'true', 'accurate', 'correct',
             'evidence shows', 'research confirms', 'studies prove', 'data shows',
-            'scientists confirm', 'experts verify', 'officially confirmed'
+            'scientists confirm', 'experts verify', 'officially confirmed',
+            'rating: true', 'mostly true', 'legitimate', 'substantiated'
         ]
         
         moderate_refuting_words = [
             'doubt', 'question', 'dispute', 'challenge', 'contradict',
-            'inconsistent', 'lacking evidence', 'unsubstantiated'
+            'inconsistent', 'lacking evidence', 'unsubstantiated', 'skeptical',
+            'needs more evidence', 'insufficient proof', 'questionable'
         ]
         
         moderate_supporting_words = [
             'supports', 'indicates', 'suggests', 'shows', 'demonstrates',
-            'research indicates', 'study shows', 'evidence suggests'
+            'research indicates', 'study shows', 'evidence suggests',
+            'data indicates', 'findings show'
         ]
         
+        # Look for fact-checking verdict patterns
+        fact_check_patterns = [
+            r'rating:?\s*(false|true|mostly false|mostly true|pants on fire)',
+            r'verdict:?\s*(false|true|misleading|accurate)',
+            r'claim:?\s*.+?\s*(false|true|misleading|accurate)',
+            r'(this is|this claim is)\s*(false|true|misleading|accurate)'
+        ]
+        
+        verdict_score = 0
+        for pattern in fact_check_patterns:
+            matches = re.findall(pattern, combined_text, re.IGNORECASE)
+            for match in matches:
+                if match.lower() in ['false', 'mostly false', 'pants on fire', 'misleading']:
+                    verdict_score -= 3
+                elif match.lower() in ['true', 'mostly true', 'accurate']:
+                    verdict_score += 3
+        
         # Calculate weighted scores
-        strong_refute = sum(2 for word in strong_refuting_words if word in combined_text)
+        strong_refute = sum(3 for word in strong_refuting_words if word in combined_text)
         moderate_refute = sum(1 for word in moderate_refuting_words if word in combined_text)
-        strong_support = sum(2 for word in strong_supporting_words if word in combined_text)
+        strong_support = sum(3 for word in strong_supporting_words if word in combined_text)
         moderate_support = sum(1 for word in moderate_supporting_words if word in combined_text)
         
-        total_refute = strong_refute + moderate_refute
-        total_support = strong_support + moderate_support
+        # Add verdict score from fact-checking patterns
+        total_refute = strong_refute + moderate_refute + abs(min(0, verdict_score))
+        total_support = strong_support + moderate_support + max(0, verdict_score)
         
-        # Check for direct contradictions
-        claim_keywords = set(claim_lower.split())
-        if any(f"not {word}" in combined_text or f"no {word}" in combined_text 
-               for word in claim_keywords if len(word) > 3):
-            total_refute += 2
+        # Check for direct contradictions with claim keywords
+        claim_keywords = set(word for word in claim_lower.split() if len(word) > 3)
+        contradiction_boost = 0
+        for word in claim_keywords:
+            if f"not {word}" in combined_text or f"no {word}" in combined_text:
+                contradiction_boost += 2
+            if f"{word} is false" in combined_text or f"{word} are false" in combined_text:
+                contradiction_boost += 3
         
-        # Calculate confidence based on strength of evidence
+        total_refute += contradiction_boost
+        
+        # Look for source credibility indicators in the text itself
+        credibility_indicators = ['according to experts', 'scientists say', 'research shows', 'study finds']
+        credibility_boost = sum(1 for indicator in credibility_indicators if indicator in combined_text)
+        
+        # Determine stance with improved logic
         if total_refute > total_support:
-            confidence = min(0.95, 0.6 + (strong_refute * 0.1) + (total_refute - total_support) * 0.05)
-            return 'refutes', confidence
+            # Higher threshold for calling something false
+            if total_refute >= total_support * 1.5:
+                confidence = min(0.95, 0.7 + (strong_refute * 0.05) + (contradiction_boost * 0.03))
+                return 'refutes', confidence
+            else:
+                return 'neutral', 0.6
         elif total_support > total_refute:
-            confidence = min(0.95, 0.6 + (strong_support * 0.1) + (total_support - total_refute) * 0.05)
-            return 'supports', confidence
+            if total_support >= total_refute * 1.3:
+                confidence = min(0.95, 0.7 + (strong_support * 0.05) + (credibility_boost * 0.02))
+                return 'supports', confidence
+            else:
+                return 'neutral', 0.6
         else:
             return 'neutral', 0.5
             
@@ -291,20 +330,32 @@ def analyze_enhanced_credibility(articles_analysis, claim):
     
     total_credibility = 0
     high_similarity_articles = 0
+    fact_check_articles = 0
     
     for article in articles_analysis:
-        weight = article['source_credibility'] * (article['similarity'] + 0.2)  # Base weight
+        # Base weight from credibility and similarity
+        base_weight = article['source_credibility'] * (article['similarity'] + 0.1)
         
+        # Boost fact-checking articles
+        if article.get('search_type') == 'fact_check':
+            fact_check_articles += 1
+            base_weight *= 2.0  # Give more weight to fact-checking articles
+        
+        # Boost high similarity articles
         if article['similarity'] > 0.6:
             high_similarity_articles += 1
-            weight *= 1.5  # Boost highly relevant articles
+            base_weight *= 1.3
             
+        # Apply stance-specific weighting
+        stance_weight = base_weight * article['stance_confidence']
+        
         if article['stance'] == 'refutes':
-            weighted_refuting += weight * article['stance_confidence']
+            # Give slightly more weight to refuting evidence to counteract bias
+            weighted_refuting += stance_weight * 1.1
         elif article['stance'] == 'supports':
-            weighted_supporting += weight * article['stance_confidence']
+            weighted_supporting += stance_weight
         else:
-            weighted_neutral += weight
+            weighted_neutral += base_weight * 0.5  # Reduce neutral weight
             
         total_credibility += article['source_credibility']
     
@@ -315,11 +366,16 @@ def analyze_enhanced_credibility(articles_analysis, claim):
         verdict = 'insufficient_data'
         confidence = 0
         credibility_score = 0
-    elif weighted_refuting > weighted_supporting * 1.2:  # Need stronger evidence to call something false
+    elif weighted_refuting > weighted_supporting * 1.1:  # Lowered threshold for false detection
         verdict = 'likely_false'
         confidence = min(95, (weighted_refuting / total_weighted) * 100)
         credibility_score = max(5, 100 - confidence)
-    elif weighted_supporting > weighted_refuting * 1.1:
+        
+        # Boost confidence if we have fact-checking articles that refute
+        if fact_check_articles > 0:
+            confidence = min(95, confidence * 1.2)
+            
+    elif weighted_supporting > weighted_refuting * 1.3:  # Higher threshold for true claims
         verdict = 'likely_true'
         confidence = min(95, (weighted_supporting / total_weighted) * 100)
         credibility_score = min(95, confidence)
@@ -330,9 +386,9 @@ def analyze_enhanced_credibility(articles_analysis, claim):
     
     # Adjust confidence based on evidence quality
     avg_credibility = total_credibility / len(articles_analysis) if articles_analysis else 0
-    if avg_credibility > 0.8 and high_similarity_articles >= 2:
+    if avg_credibility > 0.8 and (high_similarity_articles >= 2 or fact_check_articles >= 1):
         evidence_quality = 'high'
-        confidence = min(95, confidence * 1.2)
+        confidence = min(95, confidence * 1.1)
     elif avg_credibility > 0.6 and high_similarity_articles >= 1:
         evidence_quality = 'medium'
     else:
@@ -349,6 +405,7 @@ def analyze_enhanced_credibility(articles_analysis, claim):
             'supporting': sum(1 for a in articles_analysis if a['stance'] == 'supports'),
             'neutral': sum(1 for a in articles_analysis if a['stance'] == 'neutral'),
             'high_credibility_sources': sum(1 for a in articles_analysis if a['source_credibility'] > 0.8),
+            'fact_check_sources': fact_check_articles,
             'total_articles': len(articles_analysis)
         }
     }
