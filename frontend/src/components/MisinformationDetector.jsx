@@ -7,6 +7,7 @@ const MisinformationDetector = () => {
   const [results, setResults] = useState(null);
   const [error, setError] = useState('');
   const [apiUrl, setApiUrl] = useState('http://localhost:5000');
+  const [detectedLanguage, setDetectedLanguage] = useState('');
 
   // Function to save results to history
   const saveToHistory = (claim, results) => {
@@ -334,6 +335,22 @@ const MisinformationDetector = () => {
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* Language Display - New Section */}
+        {results && (
+          <div className="mt-6 p-6 bg-gray-50 rounded-lg">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-800">Analysis Result</h3>
+              {results.detected_language && (
+                <span className="text-sm text-gray-600">
+                  Language: {results.detected_language === 'ne' ? 'Nepali' : 
+                              results.detected_language === 'hi' ? 'Hindi' : 'English'}
+                </span>
+              )}
+            </div>
+            {/* Rest of your result display */}
           </div>
         )}
       </div>

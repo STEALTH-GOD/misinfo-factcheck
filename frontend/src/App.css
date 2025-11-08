@@ -1,71 +1,62 @@
 .App {
-  text-align: center;
-}
-
-/* Custom navy blue colors */
-.text-navy-600 {
-  color: #1e3a8a;
-}
-
-.text-navy-700 {
-  color: #1d4ed8;
-}
-
-.bg-navy-100 {
-  background-color: #dbeafe;
-}
-
-.bg-navy-600 {
-  background-color: #1e3a8a;
-}
-
-.bg-navy-700 {
-  background-color: #1d4ed8;
-}
-
-/* Additional styles for better UX */
-.transition-colors {
-  transition-property: color, background-color, border-color;
-  transition-duration: 200ms;
-  transition-timing-function: ease-in-out;
-}
-
-/* Ensure full height */
-.min-h-screen {
   min-height: 100vh;
 }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
+/* Override default link styles */
+a {
+  text-decoration: none;
+  color: inherit;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
+a:hover {
+  text-decoration: none;
 }
 
-.App-header {
-  background-color: #282c34;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
+/* Custom utility classes */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
-.App-link {
-  color: #61dafb;
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+/* Card hover effects */
+.card-hover {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card-hover:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+/* Glass morphism effect */
+.glass {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Status indicators */
+.status-verified {
+  background: linear-gradient(45deg, #10b981, #059669);
+}
+
+.status-false {
+  background: linear-gradient(45deg, #ef4444, #dc2626);
+}
+
+.status-questionable {
+  background: linear-gradient(45deg, #f59e0b, #d97706);
+}
+
+.status-neutral {
+  background: linear-gradient(45deg, #6b7280, #4b5563);
 }
