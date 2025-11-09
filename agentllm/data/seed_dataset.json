@@ -1,0 +1,302 @@
+[
+  {
+    "id": "s001",
+    "claim_text": "काठमाडौंमा ७.८ रेकेटरको भूकम्प भएको छ",
+    "lang": "ne",
+    "expected": "FALSE"
+  },
+  {
+    "id": "s002",
+    "claim_text": "New COVID variant detected in Nepal",
+    "lang": "en",
+    "expected": "UNCLEAR"
+  },
+  {
+    "id": "s003",
+    "claim_text": "सरकारले नयाँ कर लगाएको छ",
+    "lang": "ne",
+    "expected": "MISLEADING"
+  },
+  {
+    "id": "s004",
+    "claim_text": "The minister resigned yesterday",
+    "lang": "en",
+    "expected": "FALSE"
+  },
+  {
+    "id": "s005",
+    "claim_text": "काठमाडौंमा पानीको कमी भएको छ",
+    "lang": "ne",
+    "expected": "TRUE"
+  },
+  {
+    "id": "s006",
+    "claim_text": "Prices of rice have been hiked by 50%",
+    "lang": "en",
+    "expected": "MISLEADING"
+  },
+  {
+    "id": "s007",
+    "claim_text": "नेपालले नयाँ अन्तर्राष्ट्रिय सम्झौता गरेको छ",
+    "lang": "ne",
+    "expected": "UNCLEAR"
+  },
+  {
+    "id": "s008",
+    "claim_text": "Electricity tariff reduced by government",
+    "lang": "en",
+    "expected": "TRUE"
+  },
+  {
+    "id": "s009",
+    "claim_text": "नयाँ ट्रेनों अस्वीकृत भएका छन्",
+    "lang": "ne",
+    "expected": "FALSE"
+  },
+  {
+    "id": "s010",
+    "claim_text": "Celebrity X tested positive for COVID",
+    "lang": "en",
+    "expected": "UNCLEAR"
+  },
+  {
+    "id": "s011",
+    "claim_text": "सरकारले मुक्त कलेज शुल्क माफी गरेको छ",
+    "lang": "ne",
+    "expected": "FALSE"
+  },
+  {
+    "id": "s012",
+    "claim_text": "The city announced free public transport this week",
+    "lang": "en",
+    "expected": "TRUE"
+  },
+  {
+    "id": "s013",
+    "claim_text": "नेपालले अर्को बर्ष कर घटाउने घोषणा गर्यो",
+    "lang": "ne",
+    "expected": "UNCLEAR"
+  },
+  {
+    "id": "s014",
+    "claim_text": "A large solar plant launched in Pokhara",
+    "lang": "en",
+    "expected": "TRUE"
+  },
+  {
+    "id": "s015",
+    "claim_text": "सोसल मिडियामा कोरोना भाइरसले सबैलाई प्रभावित पार्छ भन्ने खबर छ",
+    "lang": "ne",
+    "expected": "MISLEADING"
+  },
+  {
+    "id": "s016",
+    "claim_text": "New bridge over Koshi river collapsed",
+    "lang": "en",
+    "expected": "FALSE"
+  },
+  {
+    "id": "s017",
+    "claim_text": "नेपाल इलेक्ट्रीकले नयाँ बिल नीतिहरु ल्यायो",
+    "lang": "ne",
+    "expected": "UNCLEAR"
+  },
+  {
+    "id": "s018",
+    "claim_text": "School exams postponed due to weather",
+    "lang": "en",
+    "expected": "TRUE"
+  },
+  {
+    "id": "s019",
+    "claim_text": "नयाँ भ्याक्सिन नेपालमा उपलब्ध भयो",
+    "lang": "ne",
+    "expected": "UNCLEAR"
+  },
+  {
+    "id": "s020",
+    "claim_text": "Imported car tariffs increased by 20%",
+    "lang": "en",
+    "expected": "MISLEADING"
+  },
+  {
+    "id": "s021",
+    "claim_text": "काठमाडौंमा ७.८ रेकेटरको भूकम्प भएको छ",
+    "lang": "ne",
+    "expected": "FALSE"
+  },
+  {
+    "id": "s022",
+    "claim_text": "New COVID variant detected in Nepal",
+    "lang": "en",
+    "expected": "UNCLEAR"
+  },
+  {
+    "id": "s023",
+    "claim_text": "सरकारले नयाँ कर लगाएको छ",
+    "lang": "ne",
+    "expected": "MISLEADING"
+  },
+  {
+    "id": "s024",
+    "claim_text": "The minister resigned yesterday",
+    "lang": "en",
+    "expected": "FALSE"
+  },
+  {
+    "id": "s025",
+    "claim_text": "काठमाडौंमा पानीको कमी भएको छ",
+    "lang": "ne",
+    "expected": "TRUE"
+  },
+  {
+    "id": "s026",
+    "claim_text": "Prices of rice have been hiked by 50%",
+    "lang": "en",
+    "expected": "MISLEADING"
+  },
+  {
+    "id": "s027",
+    "claim_text": "नेपालले नयाँ अन्तर्राष्ट्रिय सम्झौता गरेको छ",
+    "lang": "ne",
+    "expected": "UNCLEAR"
+  },
+  {
+    "id": "s028",
+    "claim_text": "Electricity tariff reduced by government",
+    "lang": "en",
+    "expected": "TRUE"
+  },
+  {
+    "id": "s029",
+    "claim_text": "नयाँ ट्रेनों अस्वीकृत भएका छन्",
+    "lang": "ne",
+    "expected": "FALSE"
+  },
+  {
+    "id": "s030",
+    "claim_text": "Celebrity X tested positive for COVID",
+    "lang": "en",
+    "expected": "UNCLEAR"
+  },
+  {
+    "id": "s031",
+    "claim_text": "सरकारले मुक्त कलेज शुल्क माफी गरेको छ",
+    "lang": "ne",
+    "expected": "FALSE"
+  },
+  {
+    "id": "s032",
+    "claim_text": "The city announced free public transport this week",
+    "lang": "en",
+    "expected": "TRUE"
+  },
+  {
+    "id": "s033",
+    "claim_text": "नेपालले अर्को बर्ष कर घटाउने घोषणा गर्यो",
+    "lang": "ne",
+    "expected": "UNCLEAR"
+  },
+  {
+    "id": "s034",
+    "claim_text": "A large solar plant launched in Pokhara",
+    "lang": "en",
+    "expected": "TRUE"
+  },
+  {
+    "id": "s035",
+    "claim_text": "सोसल मिडियामा कोरोना भाइरसले सबैलाई प्रभावित पार्छ भन्ने खबर छ",
+    "lang": "ne",
+    "expected": "MISLEADING"
+  },
+  {
+    "id": "s036",
+    "claim_text": "New bridge over Koshi river collapsed",
+    "lang": "en",
+    "expected": "FALSE"
+  },
+  {
+    "id": "s037",
+    "claim_text": "नेपाल इलेक्ट्रीकले नयाँ बिल नीतिहरु ल्यायो",
+    "lang": "ne",
+    "expected": "UNCLEAR"
+  },
+  {
+    "id": "s038",
+    "claim_text": "School exams postponed due to weather",
+    "lang": "en",
+    "expected": "TRUE"
+  },
+  {
+    "id": "s039",
+    "claim_text": "नयाँ भ्याक्सिन नेपालमा उपलब्ध भयो",
+    "lang": "ne",
+    "expected": "UNCLEAR"
+  },
+  {
+    "id": "s040",
+    "claim_text": "Imported car tariffs increased by 20%",
+    "lang": "en",
+    "expected": "MISLEADING"
+  },
+  {
+    "id": "s041",
+    "claim_text": "काठमाडौंमा ७.८ रेकेटरको भूकम्प भएको छ",
+    "lang": "ne",
+    "expected": "FALSE"
+  },
+  {
+    "id": "s042",
+    "claim_text": "New COVID variant detected in Nepal",
+    "lang": "en",
+    "expected": "UNCLEAR"
+  },
+  {
+    "id": "s043",
+    "claim_text": "सरकारले नयाँ कर लगाएको छ",
+    "lang": "ne",
+    "expected": "MISLEADING"
+  },
+  {
+    "id": "s044",
+    "claim_text": "The minister resigned yesterday",
+    "lang": "en",
+    "expected": "FALSE"
+  },
+  {
+    "id": "s045",
+    "claim_text": "काठमाडौंमा पानीको कमी भएको छ",
+    "lang": "ne",
+    "expected": "TRUE"
+  },
+  {
+    "id": "s046",
+    "claim_text": "Prices of rice have been hiked by 50%",
+    "lang": "en",
+    "expected": "MISLEADING"
+  },
+  {
+    "id": "s047",
+    "claim_text": "नेपालले नयाँ अन्तर्राष्ट्रिय सम्झौता गरेको छ",
+    "lang": "ne",
+    "expected": "UNCLEAR"
+  },
+  {
+    "id": "s048",
+    "claim_text": "Electricity tariff reduced by government",
+    "lang": "en",
+    "expected": "TRUE"
+  },
+  {
+    "id": "s049",
+    "claim_text": "नयाँ ट्रेनों अस्वीकृत भएका छन्",
+    "lang": "ne",
+    "expected": "FALSE"
+  },
+  {
+    "id": "s050",
+    "claim_text": "Celebrity X tested positive for COVID",
+    "lang": "en",
+    "expected": "UNCLEAR"
+  }
+]
