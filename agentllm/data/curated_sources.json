@@ -1,0 +1,56 @@
+{
+  "nepali_news_sources": [
+    {
+      "name": "Kathmandu Post",
+      "base_url": "https://kathmandupost.com"
+    },
+    {
+      "name": "The Himalayan Times",
+      "base_url": "https://thehimalayantimes.com"
+    },
+    {
+      "name": "Online Khabar",
+      "base_url": "https://www.onlinekhabar.com"
+    },
+    {
+      "name": "Setopati",
+      "base_url": "https://setopati.com"
+    },
+    {
+      "name": "Ekantipur",
+      "base_url": "https://ekantipur.com"
+    },
+    {
+      "name": "My Republica",
+      "base_url": "https://myrepublica.nagariknetwork.com"
+    },
+    {
+      "name": "Ratopati",
+      "base_url": "https://ratopati.com"
+    },
+    {
+      "name": "Annapurna Post",
+      "base_url": "https://annapurnapost.com"
+    },
+    {
+      "name": "Nepal News",
+      "base_url": "https://nepalnews.com"
+    }
+  ],
+  "fact_checking_sources": [
+    {
+      "name": "South Asia Check",
+      "base_url": "https://southasiacheck.org"
+    }
+  ],
+  "government_sources": [
+    {
+      "name": "Ministry of Health Nepal",
+      "base_url": "https://mohp.gov.np"
+    },
+    {
+      "name": "Nepal Government Portal",
+      "base_url": "https://www.nepal.gov.np"
+    }
+  ]
+}
