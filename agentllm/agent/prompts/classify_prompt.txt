@@ -1,0 +1,7 @@
+Claim: {CLAIM_TEXT}
+Language: {LANG}
+
+Evidence:
+{EVIDENCE_BLOCK}
+
+Task: Based only on the evidence above, return the JSON object specified. Do not add other commentary. If evidence contradicts and no authoritative source resolves it, return UNCLEAR.

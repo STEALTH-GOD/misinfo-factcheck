@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+requests
+python-dotenv
+newspaper3k
+sentence-transformers
+scikit-learn
+beautifulsoup4
+tqdm
+pydantic
+pytest
