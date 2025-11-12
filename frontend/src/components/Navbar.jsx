@@ -1,96 +1,89 @@
 import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Search, Home, Shield } from 'lucide-react';
+import './Navbar.css';
 
-const Navbar = () => {
+const Navbar = ({ currentPage, onNavigate }) => {
     const [isOpen, setIsOpen] = useState(false);
-    const location = useLocation();
 
-    const isActive = (path) => {
-        return location.pathname === path;
+    const isActive = (page) => {
+        return currentPage === page;
+    };
+
+    const handleNavClick = (page) => {
+        onNavigate(page);
+        setIsOpen(false); // Close mobile menu after navigation
     };
 
     return (
-        <nav className="bg-white shadow-lg border-b border-gray-200">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="flex justify-between h-16">
+        <nav className="navbar">
+            <div className="navbar-container">
+                <div className="navbar-content">
                     {/* Logo */}
-                    <div className="flex items-center">
-                        <Link to="/" className="flex-shrink-0 flex items-center">
-                            <span className="text-2xl font-bold text-blue-600">🔍</span>
-                            <span className="ml-2 text-xl font-bold text-gray-800">AI Fact Checker</span>
-                        </Link>
+                    <div className="navbar-brand">
+                        <button 
+                            onClick={() => handleNavClick('home')} 
+                            className="brand-link"
+                        >
+                            <div className="brand-icon">
+                                <Shield className="brand-icon-svg" />
+                            </div>
+                            <span className="brand-text">AI Fact Checker</span>
+                        </button>
                     </div>
 
                     {/* Desktop Navigation */}
-                    <div className="hidden md:flex items-center space-x-8">
-                        <Link
-                            to="/"
-                            className={`px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${
-                                isActive('/')
-                                    ? 'text-blue-600 bg-blue-50'
-                                    : 'text-gray-700 hover:text-blue-600 hover:bg-gray-50'
-                            }`}
+                    <div className="navbar-menu">
+                        <button
+                            onClick={() => handleNavClick('home')}
+                            className={`nav-link ${isActive('home') ? 'nav-link-active' : ''}`}
                         >
-                            🏠 Home
-                        </Link>
-                        <Link
-                            to="/detector"
-                            className={`px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${
-                                isActive('/detector')
-                                    ? 'text-blue-600 bg-blue-50'
-                                    : 'text-gray-700 hover:text-blue-600 hover:bg-gray-50'
-                            }`}
+                            <Home className="nav-icon" />
+                            <span>Home</span>
+                        </button>
+                        <button
+                            onClick={() => handleNavClick('detect')}
+                            className={`nav-link verify-btn ${isActive('detect') ? 'nav-link-active' : ''}`}
                         >
-                            🔍 Fact Checker
-                        </Link>
+                            <Search className="nav-icon" />
+                            <span>Verify Claims</span>
+                        </button>
                     </div>
 
                     {/* Mobile menu button */}
-                    <div className="md:hidden flex items-center">
+                    <div className="navbar-mobile-toggle">
                         <button
                             onClick={() => setIsOpen(!isOpen)}
-                            className="text-gray-700 hover:text-blue-600 focus:outline-none focus:text-blue-600"
+                            className="mobile-toggle-btn"
+                            aria-label="Toggle navigation menu"
                         >
-                            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                {isOpen ? (
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                ) : (
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                                )}
-                            </svg>
+                            <div className={`hamburger ${isOpen ? 'hamburger-open' : ''}`}>
+                                <span></span>
+                                <span></span>
+                                <span></span>
+                            </div>
                         </button>
                     </div>
                 </div>
 
                 {/* Mobile Navigation */}
-                {isOpen && (
-                    <div className="md:hidden">
-                        <div className="px-2 pt-2 pb-3 space-y-1 bg-gray-50 rounded-lg mt-2">
-                            <Link
-                                to="/"
-                                className={`block px-3 py-2 rounded-md text-base font-medium transition-colors duration-200 ${
-                                    isActive('/')
-                                        ? 'text-blue-600 bg-blue-50'
-                                        : 'text-gray-700 hover:text-blue-600 hover:bg-white'
-                                }`}
-                                onClick={() => setIsOpen(false)}
-                            >
-                                🏠 Home
-                            </Link>
-                            <Link
-                                to="/detector"
-                                className={`block px-3 py-2 rounded-md text-base font-medium transition-colors duration-200 ${
-                                    isActive('/detector')
-                                        ? 'text-blue-600 bg-blue-50'
-                                        : 'text-gray-700 hover:text-blue-600 hover:bg-white'
-                                }`}
-                                onClick={() => setIsOpen(false)}
-                            >
-                                🔍 Fact Checker
-                            </Link>
-                        </div>
+                <div className={`mobile-menu ${isOpen ? 'mobile-menu-open' : ''}`}>
+                    <div className="mobile-menu-content">
+                        <button
+                            onClick={() => handleNavClick('home')}
+                            className={`mobile-nav-link ${isActive('home') ? 'mobile-nav-link-active' : ''}`}
+                        >
+                            <Home className="mobile-nav-icon" />
+                            <span>Home</span>
+                        </button>
+                        <button
+                            onClick={() => handleNavClick('detect')}
+                            className={`mobile-nav-link ${isActive('detect') ? 'mobile-nav-link-active' : ''}`}
+                        >
+                            <Search className="mobile-nav-icon" />
+                            <span>Verify Claims</span>
+                        </button>
                     </div>
-                )}
+                </div>
             </div>
         </nav>
     );

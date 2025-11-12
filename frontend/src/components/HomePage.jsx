@@ -1,156 +1,219 @@
 import React, { useState, useEffect } from 'react';
+import NewsCard from '../components/NewsCard';
+import { api } from '../services/api';
+import { RefreshCw } from 'lucide-react';
 import './HomePage.css';
-import NewsCard from './NewsCard';
 
-const HomePage = () => {
-    const [newsData, setNewsData] = useState({
-        recent: [],
-        verified_true: [],
-        verified_false: []
-    });
-    const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState('recent');
-    const [error, setError] = useState(null);
+const HomePage = ({ onOpenArticle }) => {
+  const [news, setNews] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [activeTab, setActiveTab] = useState('latest');
+  const [refreshing, setRefreshing] = useState(false);
 
-    useEffect(() => {
-        fetchHomepageNews();
-    }, []);
-
-    const fetchHomepageNews = async () => {
-        try {
-            setLoading(true);
-            setError(null);
-            
-            const response = await fetch('http://localhost:5000/api/homepage-news');
-            const result = await response.json();
-            
-            if (result.status === 'success') {
-                setNewsData(result.data);
-            } else {
-                setError('Failed to load news');
-            }
-        } catch (error) {
-            console.error('Error fetching news:', error);
-            setError('Network error occurred');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const refreshNews = () => {
-        fetchHomepageNews();
-    };
-
-    if (loading) {
-        return (
-            <div className="min-h-screen bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                <div className="text-center text-white">
-                    <div className="animate-spin w-12 h-12 border-4 border-white border-t-transparent rounded-full mx-auto mb-4"></div>
-                    <p className="text-xl">Loading latest news...</p>
-                </div>
-            </div>
-        );
+  // Mock data for demonstration
+  const mockNews = [
+    {
+      id: '1',
+      title: 'Government Announces Infrastructure Development Plans',
+      snippet: 'Major infrastructure projects announced including road connectivity improvements and digital infrastructure expansion across rural areas.',
+      source: 'Ekantipur Daily',
+      published_at: Date.now() / 1000,
+      verification_status: 'VERIFIED_TRUE',
+      category: 'Politics',
+      tags: ['Politics', 'Technology', 'Infrastructure'],
+      trustScore: 95
+    },
+    {
+      id: '2', 
+      title: 'Economic Growth Indicators Show Positive Trends',
+      snippet: 'Recent economic data indicates steady growth in key sectors with improved employment rates and increased investment.',
+      source: 'My Republica',
+      published_at: Date.now() / 1000,
+      verification_status: 'UNVERIFIED',
+      category: 'Economy',
+      tags: ['Economy'],
+      trustScore: 68
+    },
+    {
+      id: '3',
+      title: 'Environmental Conservation Efforts Gain Momentum',
+      snippet: 'New environmental protection initiatives launched with focus on sustainable development and climate change adaptation.',
+      source: 'Online Khabar',
+      published_at: Date.now() / 1000,
+      verification_status: 'UNVERIFIED',
+      category: 'Environment',
+      tags: ['Environment', 'Infrastructure'],
+      trustScore: 72
+    },
+    {
+      id: '4',
+      title: 'False Claims About COVID-19 Treatments Spread Online',
+      snippet: 'Misinformation regarding unproven COVID-19 treatments continues to circulate on social media platforms despite lack of scientific evidence.',
+      source: 'Health Fact Check',
+      published_at: Date.now() / 1000,
+      verification_status: 'DEBUNKED',
+      category: 'Health',
+      tags: ['Health', 'Misinformation', 'COVID-19'],
+      trustScore: 15
+    },
+    {
+      id: '5',
+      title: 'Technology Sector Shows Strong Growth in Local Market',
+      snippet: 'Local technology companies report significant growth with increased demand for digital services and solutions.',
+      source: 'Tech Today',
+      published_at: Date.now() / 1000,
+      verification_status: 'VERIFIED_TRUE',
+      category: 'Technology',
+      tags: ['Technology', 'Business'],
+      trustScore: 88
+    },
+    {
+      id: '6',
+      title: 'Conspiracy Theories About 5G Networks Resurface',
+      snippet: 'Debunked conspiracy theories linking 5G networks to health issues continue to spread despite scientific consensus on safety.',
+      source: 'Science Verify',
+      published_at: Date.now() / 1000,
+      verification_status: 'DEBUNKED',
+      category: 'Technology',
+      tags: ['Technology', 'Health', 'Conspiracy'],
+      trustScore: 8
     }
+  ];
 
-    if (error) {
-        return (
-            <div className="min-h-screen bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                <div className="text-center text-white">
-                    <div className="text-6xl mb-4">⚠️</div>
-                    <h2 className="text-2xl mb-4">{error}</h2>
-                    <button 
-                        onClick={refreshNews}
-                        className="bg-white text-blue-600 px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition"
-                    >
-                        Try Again
-                    </button>
-                </div>
-            </div>
-        );
+  useEffect(() => {
+    loadNews();
+  }, []);
+
+  const loadNews = async () => {
+    try {
+      setLoading(true);
+      // Try to load from API, fallback to mock data
+      try {
+        // Add timestamp to prevent caching and ensure fresh data
+        const timestamp = Date.now();
+        const response = await api.getLatestNews(15, timestamp);  // Get more items for variety
+        const apiNews = response.news?.map(item => ({
+          ...item,
+          // Keep the verification_status from backend
+          category: item.category || 'General',
+          tags: item.tags || ['General']
+        })) || [];
+        setNews(apiNews.length > 0 ? apiNews : mockNews);
+      } catch (apiError) {
+        console.error('API Error:', apiError);
+        // Use mock data if API fails
+        setNews(mockNews);
+      }
+    } catch (err) {
+      setError(err.message);
+      setNews(mockNews); // Fallback to mock data
+    } finally {
+      setLoading(false);
     }
+  };
 
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadNews();
+    setRefreshing(false);
+  };
+
+  const getTabCounts = () => {
+    const latest = news.length;
+    const verified = news.filter(n => n.verification_status === 'TRUE').length;
+    const debunked = news.filter(n => n.verification_status === 'FALSE').length;
+    return { latest, verified, debunked };
+  };
+
+  const getFilteredNews = () => {
+    switch (activeTab) {
+      case 'verified':
+        return news.filter(n => n.verification_status === 'TRUE');
+      case 'debunked':
+        return news.filter(n => n.verification_status === 'FALSE');
+      default:
+        return news;
+    }
+  };
+
+  const counts = getTabCounts();
+  const filteredNews = getFilteredNews();
+
+  if (loading) {
     return (
-        <div className="min-h-screen bg-gradient-to-br from-blue-500 to-purple-600">
-            {/* Header */}
-            <header className="bg-white bg-opacity-10 backdrop-blur-md py-16">
-                <div className="container mx-auto px-4 text-center text-white">
-                    <h1 className="text-5xl font-bold mb-4">🔍 AI Fact Checker</h1>
-                    <p className="text-xl mb-8 opacity-90">
-                        Stay informed with verified news and fact-checked information
-                    </p>
-                    <button 
-                        onClick={refreshNews}
-                        className="bg-white bg-opacity-20 border-2 border-white border-opacity-30 text-white px-8 py-3 rounded-full font-semibold hover:bg-opacity-30 transition transform hover:scale-105"
-                    >
-                        🔄 Refresh News
-                    </button>
-                </div>
-            </header>
-
-            {/* Main Content */}
-            <main className="container mx-auto px-4 py-8">
-                {/* Navigation Tabs */}
-                <div className="flex justify-center mb-8">
-                    <div className="bg-white bg-opacity-10 backdrop-blur-md p-2 rounded-2xl flex gap-2">
-                        <button 
-                            className={`px-6 py-3 rounded-xl font-semibold transition ${
-                                activeTab === 'recent' 
-                                    ? 'bg-white text-blue-600 shadow-lg' 
-                                    : 'text-white hover:bg-white hover:bg-opacity-20'
-                            }`}
-                            onClick={() => setActiveTab('recent')}
-                        >
-                            📰 Latest News ({newsData.recent?.length || 0})
-                        </button>
-                        <button 
-                            className={`px-6 py-3 rounded-xl font-semibold transition ${
-                                activeTab === 'verified_true' 
-                                    ? 'bg-white text-blue-600 shadow-lg' 
-                                    : 'text-white hover:bg-white hover:bg-opacity-20'
-                            }`}
-                            onClick={() => setActiveTab('verified_true')}
-                        >
-                            ✅ Verified True ({newsData.verified_true?.length || 0})
-                        </button>
-                        <button 
-                            className={`px-6 py-3 rounded-xl font-semibold transition ${
-                                activeTab === 'verified_false' 
-                                    ? 'bg-white text-blue-600 shadow-lg' 
-                                    : 'text-white hover:bg-white hover:bg-opacity-20'
-                            }`}
-                            onClick={() => setActiveTab('verified_false')}
-                        >
-                            ❌ Debunked ({newsData.verified_false?.length || 0})
-                        </button>
-                    </div>
-                </div>
-
-                {/* News Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-                    {newsData[activeTab]?.map((article, index) => (
-                        <NewsCard 
-                            key={article.id || index}
-                            article={article}
-                        />
-                    ))}
-                </div>
-
-                {/* Empty State */}
-                {(!newsData[activeTab] || newsData[activeTab].length === 0) && (
-                    <div className="text-center py-16">
-                        <div className="text-6xl mb-4">📰</div>
-                        <p className="text-white text-xl mb-6">No news available in this category</p>
-                        <button 
-                            onClick={refreshNews}
-                            className="bg-white text-blue-600 px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition"
-                        >
-                            Try Refreshing
-                        </button>
-                    </div>
-                )}
-            </main>
+      <div className="homepage">
+        <div className="homepage-loading">
+          <div className="loading-spinner"></div>
+          <p>Loading latest news...</p>
         </div>
+      </div>
     );
+  }
+
+  return (
+    <div className="homepage">
+      <div className="homepage-header">
+        <div className="homepage-hero">
+          <div className="hero-icon">🔍</div>
+          <h1>AI Fact Checker</h1>
+          <p>Stay informed with verified news and fact-checked information</p>
+          <button onClick={handleRefresh} className="refresh-button" disabled={refreshing}>
+            <RefreshCw className={`refresh-icon ${refreshing ? 'spinning' : ''}`} />
+            Refresh News
+          </button>
+        </div>
+
+        <div className="news-tabs">
+          <button 
+            className={`tab-button ${activeTab === 'latest' ? 'active' : ''}`}
+            onClick={() => setActiveTab('latest')}
+          >
+            📰 Latest News ({counts.latest})
+          </button>
+          <button 
+            className={`tab-button ${activeTab === 'verified' ? 'active' : ''}`}
+            onClick={() => setActiveTab('verified')}
+          >
+            ✅ Verified True ({counts.verified})
+          </button>
+          <button 
+            className={`tab-button ${activeTab === 'debunked' ? 'active' : ''}`}
+            onClick={() => setActiveTab('debunked')}
+          >
+            ❌ Debunked ({counts.debunked})
+          </button>
+        </div>
+      </div>
+
+      {error && (
+        <div className="homepage-error">
+          <h3>Unable to load news</h3>
+          <p>{error}</p>
+          <button onClick={loadNews} className="retry-button">
+            Try Again
+          </button>
+        </div>
+      )}
+
+      <div className="news-grid">
+        {filteredNews.map((article) => (
+          <NewsCard
+            key={article.id}
+            article={article}
+            onClick={onOpenArticle}
+          />
+        ))}
+      </div>
+
+      {filteredNews.length === 0 && !loading && (
+        <div className="homepage-empty">
+          <h3>No articles found</h3>
+          <p>No articles match the selected filter.</p>
+        </div>
+      )}
+    </div>
+  );
 };
 
 export default HomePage;

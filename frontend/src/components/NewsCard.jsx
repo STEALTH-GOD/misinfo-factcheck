@@ -1,115 +1,201 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { Calendar, ExternalLink, X } from 'lucide-react';
 import './NewsCard.css';
-import { useNavigate } from 'react-router-dom';
 
-const NewsCard = ({ article }) => {
-    const navigate = useNavigate();
+const NewsCard = ({ article, onClick }) => {
+  const [showSourceModal, setShowSourceModal] = useState(false);
+  const [selectedSource, setSelectedSource] = useState(null);
 
-    const handleCardClick = () => {
-        navigate(`/article/${article.id}`, {
-            state: { 
-                article,
-                url: article.url,
-                title: article.title 
-            }
-        });
-    };
+  const formatDate = (timestamp) => {
+    const date = new Date(timestamp * 1000);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
 
-    const getStatusColor = (status) => {
-        switch (status) {
-            case 'verified_true': return 'bg-green-500';
-            case 'verified_false': return 'bg-red-500';
-            case 'likely_true': return 'bg-green-400';
-            case 'questionable': return 'bg-yellow-500';
-            default: return 'bg-gray-500';
-        }
-    };
+  const getStatusBadge = (status) => {
+    switch (status) {
+      case 'TRUE':
+        return { text: 'VERIFIED TRUE', class: 'verified-true' };
+      case 'FALSE':
+        return { text: 'FALSE/MISLEADING', class: 'debunked' };
+      case 'UNCLEAR':
+        return { text: 'UNVERIFIED', class: 'unverified' };
+      default:
+        return { text: 'UNVERIFIED', class: 'unverified' };
+    }
+  };
 
-    const getStatusIcon = (status) => {
-        switch (status) {
-            case 'verified_true': return '✅';
-            case 'verified_false': return '❌';
-            case 'likely_true': return '🟢';
-            case 'questionable': return '🟡';
-            default: return '⚪';
-        }
-    };
+  const getCardBackgroundClass = (status) => {
+    switch (status) {
+      case 'TRUE':
+        return 'news-card-verified'; // Green background
+      case 'FALSE':
+        return 'news-card-false'; // Red background
+      case 'UNCLEAR':
+        return 'news-card-unclear'; // Gray background
+      default:
+        return 'news-card-unclear';
+    }
+  };
 
-    const getStatusText = (status) => {
-        switch (status) {
-            case 'verified_true': return 'VERIFIED TRUE';
-            case 'verified_false': return 'DEBUNKED';
-            case 'likely_true': return 'LIKELY TRUE';
-            case 'questionable': return 'QUESTIONABLE';
-            default: return 'UNVERIFIED';
-        }
-    };
+  const handleSourceClick = (e, source) => {
+    e.stopPropagation(); // Prevent card click
+    setSelectedSource(source);
+    setShowSourceModal(true);
+  };
 
-    return (
-        <div 
-            className="bg-white bg-opacity-95 backdrop-blur-md rounded-2xl p-6 cursor-pointer transition-all duration-300 hover:transform hover:scale-105 hover:shadow-2xl border border-white border-opacity-20"
-            onClick={handleCardClick}
-        >
-            {/* Header */}
-            <div className="flex justify-between items-start mb-4">
-                <span className={`${getStatusColor(article.verification_status)} text-white px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1`}>
-                    <span>{getStatusIcon(article.verification_status)}</span>
-                    {getStatusText(article.verification_status)}
-                </span>
-                <span className="text-gray-500 text-sm font-medium bg-gray-100 px-2 py-1 rounded-lg">
-                    {article.source}
-                </span>
+  const handleSourcesClick = (e) => {
+    e.stopPropagation(); // Prevent card click
+    setSelectedSource('all');
+    setShowSourceModal(true);
+  };
+
+  const closeModal = () => {
+    setShowSourceModal(false);
+    setSelectedSource(null);
+  };
+
+  const statusBadge = getStatusBadge(article.verification_status);
+  const backgroundClass = getCardBackgroundClass(article.verification_status);
+
+  return (
+    <>
+      <div className={`news-card ${backgroundClass}`} onClick={() => onClick(article.id)}>
+        <div className="news-card-header">
+          <div className={`verification-badge ${statusBadge.class}`}>
+            {statusBadge.text}
+          </div>
+          <div className="news-card-source-container">
+            <div 
+              className="news-card-source clickable-source" 
+              onClick={(e) => handleSourceClick(e, article.source)}
+              title="Click to view source details"
+            >
+              {article.source}
             </div>
-
-            {/* Content */}
-            <div className="mb-4">
-                <h3 className="text-lg font-bold text-gray-800 mb-3 line-clamp-2 leading-tight">
-                    {article.title}
-                </h3>
-                <p className="text-gray-600 text-sm leading-relaxed line-clamp-3">
-                    {article.snippet}
-                </p>
-            </div>
-
-            {/* Tags */}
-            {article.tags && article.tags.length > 0 && (
-                <div className="flex flex-wrap gap-2 mb-4">
-                    {article.tags.slice(0, 3).map((tag, index) => (
-                        <span 
-                            key={index} 
-                            className="bg-blue-100 text-blue-700 px-2 py-1 rounded-lg text-xs font-medium"
-                        >
-                            {tag}
-                        </span>
-                    ))}
-                </div>
+            {article.source_count > 1 && (
+              <div 
+                className="source-count clickable-source"
+                onClick={handleSourcesClick}
+                title="Click to view all sources"
+              >
+                {article.source_count} sources
+              </div>
             )}
-
-            {/* Footer */}
-            <div className="flex justify-between items-center pt-4 border-t border-gray-200">
-                <div className="flex flex-col">
-                    <span className="text-xs text-gray-500 mb-1">Trust Score</span>
-                    <div className="flex items-center gap-2">
-                        <div className="w-16 bg-gray-200 rounded-full h-2">
-                            <div 
-                                className={`h-2 rounded-full ${
-                                    article.trustworthiness_score > 0.7 ? 'bg-green-500' :
-                                    article.trustworthiness_score > 0.4 ? 'bg-yellow-500' : 'bg-red-500'
-                                }`}
-                                style={{ width: `${(article.trustworthiness_score || 0) * 100}%` }}
-                            />
-                        </div>
-                        <span className="text-sm font-bold text-gray-700">
-                            {((article.trustworthiness_score || 0) * 100).toFixed(0)}%
-                        </span>
-                    </div>
-                </div>
-                <span className="text-xs text-gray-400">
-                    {new Date(article.published_date).toLocaleDateString()}
-                </span>
-            </div>
+          </div>
         </div>
-    );
+        
+        <h3 className="news-card-title">{article.title}</h3>
+        
+        <p className="news-card-snippet">
+          {article.snippet}
+        </p>
+
+        {article.sources && article.sources.length > 1 && (
+          <div className="news-card-sources" onClick={handleSourcesClick}>
+            <span className="sources-label">Sources:</span>
+            <div className="sources-list">
+              {article.sources.slice(0, 3).map((source, index) => (
+                <span 
+                  key={index} 
+                  className="source-item clickable-source"
+                  onClick={(e) => handleSourceClick(e, source)}
+                  title={`Click to view ${source}`}
+                >
+                  {source}
+                </span>
+              ))}
+              {article.sources.length > 3 && (
+                <span 
+                  className="more-sources clickable-source"
+                  onClick={handleSourcesClick}
+                  title="Click to view all sources"
+                >
+                  +{article.sources.length - 3} more
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+        
+        <div className="news-card-footer">
+          <div className="news-card-views">
+            {article.views ? `${article.views.toLocaleString()} views` : '0 views'}
+          </div>
+          <div className="news-card-meta">
+            {article.trustScore && (
+              <div className="trust-score">
+                Trust: {article.trustScore}%
+              </div>
+            )}
+            <div className="news-card-date">
+              <Calendar className="news-card-date-icon" />
+              {formatDate(article.published_at)}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Source Modal */}
+      {showSourceModal && (
+        <div className="source-modal-overlay" onClick={closeModal}>
+          <div className="source-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="source-modal-header">
+              <h3>Source Information</h3>
+              <button className="source-modal-close" onClick={closeModal}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="source-modal-content">
+              {selectedSource === 'all' ? (
+                <div>
+                  <h4>All Sources for this story:</h4>
+                  <ul className="all-sources-list">
+                    {article.sources.map((source, index) => (
+                      <li key={index} className="source-list-item">
+                        <ExternalLink size={16} />
+                        <span>{source}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="source-note">
+                    This story has been reported by {article.sources.length} different sources.
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <h4>Source: {selectedSource}</h4>
+                  <div className="source-details">
+                    <p><strong>Publication:</strong> {selectedSource}</p>
+                    <p><strong>Story:</strong> {article.title}</p>
+                    <p><strong>Published:</strong> {formatDate(article.published_at)}</p>
+                  </div>
+                  <div className="source-actions">
+                    <button 
+                      className="source-btn"
+                      onClick={() => {
+                        if (article.source_url) {
+                          window.open(article.source_url, '_blank');
+                        } else {
+                          alert('Source URL not available for this article');
+                        }
+                      }}
+                    >
+                      <ExternalLink size={16} />
+                      View Original Article
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
 };
 
 export default NewsCard;

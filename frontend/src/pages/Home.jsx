@@ -1,8 +1,8 @@
 import React from 'react';
 import HomePage from '../components/HomePage';
 
-const Home = () => {
-    return <HomePage />;
+const Home = ({ onOpenArticle }) => {
+  return <HomePage onOpenArticle={onOpenArticle} />;
 };
 
 export default Home;
