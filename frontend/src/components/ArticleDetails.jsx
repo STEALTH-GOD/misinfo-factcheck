@@ -11,6 +11,15 @@ const ArticleDetails = ({ articleData }) => {
 
     const { analysis, context_articles, source_info } = articleData;
 
+    // Use safe access for all properties in ArticleDetails.jsx
+    const overallVerdict = analysis?.overall_verdict || {};
+    const contentAnalysis = analysis?.content_analysis || {};
+    const sourceAnalysis = analysis?.source_analysis || {};
+
+    // Example of safe property access:
+    const verdictStatus = overallVerdict.status || 'unknown';
+    const confidence = overallVerdict.confidence || 0;
+
     const getVerdictColor = (verdict) => {
         switch (verdict) {
             case 'reliable': return 'text-green-600 bg-green-100';

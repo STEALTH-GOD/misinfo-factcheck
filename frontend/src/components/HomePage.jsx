@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './HomePage.css';
 import NewsCard from './NewsCard';
+import { getAllNewsCategories } from '../services/api';
 
 const HomePage = () => {
     const [newsData, setNewsData] = useState({
@@ -11,9 +12,11 @@ const HomePage = () => {
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('recent');
     const [error, setError] = useState(null);
+    const [newsCategories, setNewsCategories] = useState([]);
 
     useEffect(() => {
         fetchHomepageNews();
+        fetchNewsCategories();
     }, []);
 
     const fetchHomepageNews = async () => {
@@ -32,6 +35,19 @@ const HomePage = () => {
         } catch (error) {
             console.error('Error fetching news:', error);
             setError('Network error occurred');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const fetchNewsCategories = async () => {
+        try {
+            setLoading(true);
+            const data = await getAllNewsCategories('en');
+            setNewsCategories(data);
+        } catch (error) {
+            console.error('Failed to fetch news:', error);
+            setError('Failed to load news');
         } finally {
             setLoading(false);
         }

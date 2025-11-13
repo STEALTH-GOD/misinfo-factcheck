@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import ArticleDetails from '../components/ArticleDetails';
+import { getArticleDetails } from '../services/api';
 
 const ArticleDetailPage = () => {
     const { articleId } = useParams();
@@ -33,17 +34,11 @@ const ArticleDetailPage = () => {
                 title: title || 'Article Analysis'
             });
 
-            const response = await fetch(`http://localhost:5000/api/article/${articleId}?${params}`);
-            const result = await response.json();
-
-            if (result.status === 'success') {
-                setArticleData(result.data);
-            } else {
-                setError(result.error || 'Failed to load article details');
-            }
+            const data = await getArticleDetails(articleId, url, title);
+            setArticleData(data);
         } catch (error) {
-            console.error('Error fetching article details:', error);
-            setError('Network error occurred');
+            console.error('Failed to fetch article details:', error);
+            setError('Failed to load article details');
         } finally {
             setLoading(false);
         }

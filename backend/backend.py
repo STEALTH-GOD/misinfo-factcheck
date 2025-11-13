@@ -8,15 +8,19 @@ from bs4 import BeautifulSoup
 import os
 import re
 import numpy as np
+from langdetect import detect
+from googletrans import Translator
+from deep_translator import GoogleTranslator
 
 load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
 
-# Initialize models (loads once at startup)
-print("Loading AI models...")
+# Initialize models and translator
+print("Loading AI models and language services...")
 similarity_model = SentenceTransformer('sentence-transformers/all-mpnet-base-v2')
+translator = Translator()
 print("Models loaded successfully!")
 
 # API Keys
@@ -31,31 +35,123 @@ TRUSTED_SOURCES = [
     'cbsnews.com', 'nbcnews.com', 'usatoday.com', 'time.com', 'newsweek.com'
 ]
 
+# Nepali trusted sources
+NEPALI_TRUSTED_SOURCES = [
+    'ekantipur.com', 'onlinekhabar.com', 'setopati.com', 'ratopati.com',
+    'nepalnews.com', 'khabarhub.com', 'pahilopost.com', 'republica.com',
+    'myrepublica.nagariknetwork.com', 'kathmandupost.com', 'ujyaaloonline.com',
+    'annapurnapost.com', 'nagariknews.nagariknetwork.com'
+]
+
 UNRELIABLE_SOURCES = [
     'infowars.com', 'breitbart.com', 'naturalnews.com', 'beforeitsnews.com',
     'worldnetdaily.com', 'truthfeed.com', 'dailystormer.com', 'zerohedge.com'
 ]
 
+# Language-specific keywords for stance detection
+NEPALI_REFUTING_WORDS = [
+    'गलत', 'झूटो', 'असत्य', 'भ्रामक', 'मिथ्या', 'निराधार', 'फर्जी',
+    'होइन', 'छैन', 'भएको छैन', 'सत्य होइन', 'तथ्य होइन'
+]
 
-def search_google_custom(query, num_results=10):
-    """Search using Google Custom Search API"""
+NEPALI_SUPPORTING_WORDS = [
+    'सत्य', 'सहि', 'ठिक', 'पुष्टि', 'प्रमाणित', 'वैज्ञानिक', 'तथ्य',
+    'अनुसन्धान', 'अध्ययन', 'विशेषज्ञ'
+]
+
+HINDI_REFUTING_WORDS = [
+    'गलत', 'झूठ', 'असत्य', 'भ्रामक', 'मिथ्या', 'आधारहीन', 'नकली',
+    'नहीं', 'गलत है', 'सच नहीं'
+]
+
+HINDI_SUPPORTING_WORDS = [
+    'सत्य', 'सही', 'ठीक', 'पुष्टि', 'प्रमाणित', 'वैज्ञानिक', 'तथ्य',
+    'अनुसंधान', 'अध्ययन', 'विशेषज्ञ'
+]
+
+
+def detect_language(text):
+    """Detect language of input text"""
+    try:
+        # Check for Nepali characters (Devanagari script)
+        nepali_chars = ['क', 'ख', 'ग', 'घ', 'ङ', 'च', 'छ', 'ज', 'झ', 'ञ', 
+                       'ट', 'ठ', 'ड', 'ढ', 'ण', 'त', 'थ', 'द', 'ध', 'न', 
+                       'प', 'फ', 'ब', 'भ', 'म', 'य', 'र', 'ल', 'व', 'श', 
+                       'ष', 'स', 'ह', 'ा', 'ि', 'ी', 'ु', 'ू', 'े', 'ै', 
+                       'ो', 'ौ', '्']
+        
+        if any(char in text for char in nepali_chars):
+            return 'ne'  # Nepali
+        
+        # Use langdetect for other languages
+        detected = detect(text)
+        return detected
+    except:
+        return 'en'  # Default to English
+
+
+def translate_text(text, target_lang, source_lang='auto'):
+    """Translate text using multiple translation services"""
+    try:
+        if source_lang == target_lang:
+            return text
+        
+        # Try Google Translator first
+        try:
+            result = GoogleTranslator(source=source_lang, target=target_lang).translate(text)
+            if result:
+                return result
+        except:
+            pass
+        
+        # Fallback to googletrans
+        try:
+            result = translator.translate(text, src=source_lang, dest=target_lang)
+            return result.text
+        except:
+            pass
+        
+        # If translation fails, return original text
+        return text
+        
+    except Exception as e:
+        print(f"Translation error: {e}")
+        return text
+
+
+def search_google_custom_multilingual(query, num_results=10, language='en'):
+    """Enhanced multilingual search using Google Custom Search API"""
     try:
         if not GOOGLE_API_KEY or not GOOGLE_CX:
             print("Google API credentials not configured, falling back to DuckDuckGo")
-            return search_web_ddgs(query, num_results)
+            return search_web_ddgs_multilingual(query, num_results, language)
         
         articles = []
         
-        # Main search
+        # Translate query to English for broader search
+        if language != 'en':
+            query_en = translate_text(query, 'en', language)
+        else:
+            query_en = query
+        
+        # Main search in original language
         url = "https://www.googleapis.com/customsearch/v1"
         params = {
             'key': GOOGLE_API_KEY,
             'cx': GOOGLE_CX,
             'q': query,
-            'num': min(num_results, 10),  # Google allows max 10 per request
-            'dateRestrict': 'y1',  # Last year only for fresher results
+            'num': min(num_results, 10),
+            'dateRestrict': 'y2',  # Last 2 years
             'safe': 'active'
         }
+        
+        # Set language-specific parameters
+        if language == 'ne':
+            params['lr'] = 'lang_ne'
+            params['hl'] = 'ne'
+        elif language == 'hi':
+            params['lr'] = 'lang_hi'
+            params['hl'] = 'hi'
         
         response = requests.get(url, params=params, timeout=10)
         if response.status_code == 200:
@@ -68,8 +164,35 @@ def search_google_custom(query, num_results=10):
                     'snippet': item.get('snippet', ''),
                     'url': item.get('link', ''),
                     'source': 'Google',
-                    'search_type': 'original'
+                    'search_type': 'original',
+                    'language': language
                 })
+        
+        # Search in English for fact-checking if original language is not English
+        if language != 'en':
+            params_en = params.copy()
+            params_en['q'] = f"{query_en} fact check"
+            params_en['lr'] = 'lang_en'
+            params_en['hl'] = 'en'
+            params_en['num'] = 5
+            
+            try:
+                response = requests.get(url, params=params_en, timeout=10)
+                if response.status_code == 200:
+                    data = response.json()
+                    items = data.get('items', [])
+                    
+                    for item in items:
+                        articles.append({
+                            'title': item.get('title', ''),
+                            'snippet': item.get('snippet', ''),
+                            'url': item.get('link', ''),
+                            'source': 'Google',
+                            'search_type': 'fact_check',
+                            'language': 'en'
+                        })
+            except:
+                pass
         
         # Additional fact-checking searches
         fact_check_queries = [
@@ -93,7 +216,8 @@ def search_google_custom(query, num_results=10):
                             'snippet': item.get('snippet', ''),
                             'url': item.get('link', ''),
                             'source': 'Google',
-                            'search_type': 'fact_check'
+                            'search_type': 'fact_check',
+                            'language': language
                         })
             except:
                 continue
@@ -101,104 +225,72 @@ def search_google_custom(query, num_results=10):
         return articles
         
     except Exception as e:
-        print(f"Google search error: {e}")
-        return search_web_ddgs(query, num_results)
+        print(f"Google multilingual search error: {e}")
+        return search_web_ddgs_multilingual(query, num_results, language)
 
 
-def search_web_ddgs(query, num_results=15):
-    """Fallback: Enhanced DuckDuckGo search with updated package"""
+def search_web_ddgs_multilingual(query, num_results=15, language='en'):
+    """Enhanced multilingual DuckDuckGo search"""
     try:
-        from ddgs import DDGS  # Updated import
+        from ddgs import DDGS
         
         articles = []
         
-        # Search for the original claim
+        # Search in original language
         with DDGS() as ddgs:
-            results = list(ddgs.text(query, max_results=num_results))
+            # Set region based on language
+            region = 'np-ne' if language == 'ne' else 'in-hi' if language == 'hi' else 'us-en'
+            
+            results = list(ddgs.text(query, max_results=num_results, region=region))
             for result in results:
                 articles.append({
                     'title': result.get('title', ''),
                     'snippet': result.get('body', ''),
                     'url': result.get('href', ''),
                     'source': 'DuckDuckGo',
-                    'search_type': 'original'
+                    'search_type': 'original',
+                    'language': language
                 })
         
-        # Search for fact-checking specific queries
-        fact_check_queries = [
-            f"{query} fact check",
-            f"{query} debunked",
-            f"{query} verified"
-        ]
-        
-        for fact_query in fact_check_queries:
-            try:
-                with DDGS() as ddgs:
-                    results = list(ddgs.text(fact_query, max_results=3))
-                    for result in results:
-                        articles.append({
-                            'title': result.get('title', ''),
-                            'snippet': result.get('body', ''),
-                            'url': result.get('href', ''),
-                            'source': 'DuckDuckGo',
-                            'search_type': 'fact_check'
-                        })
-            except:
-                continue
-                
+        # Search in English for additional fact-checking if not English
+        if language != 'en':
+            query_en = translate_text(query, 'en', language)
+            fact_check_queries = [f"{query_en} fact check", f"{query_en} debunked"]
+            
+            for fact_query in fact_check_queries:
+                try:
+                    with DDGS() as ddgs:
+                        results = list(ddgs.text(fact_query, max_results=3, region='us-en'))
+                        for result in results:
+                            articles.append({
+                                'title': result.get('title', ''),
+                                'snippet': result.get('body', ''),
+                                'url': result.get('href', ''),
+                                'source': 'DuckDuckGo',
+                                'search_type': 'fact_check',
+                                'language': 'en'
+                            })
+                except:
+                    continue
+                    
         return articles[:20]
     except Exception as e:
-        print(f"DuckDuckGo search error: {e}")
+        print(f"DuckDuckGo multilingual search error: {e}")
         return []
 
 
-def search_web_news_api(query, num_results=10):
-    """Alternative: Use NewsAPI for news-specific searches"""
-    try:
-        NEWS_API_KEY = os.getenv('NEWS_API_KEY', '')
-        if not NEWS_API_KEY:
-            return []
-        
-        url = "https://newsapi.org/v2/everything"
-        params = {
-            'q': query,
-            'apiKey': NEWS_API_KEY,
-            'sortBy': 'relevancy',
-            'pageSize': num_results,
-            'language': 'en'
-        }
-        
-        response = requests.get(url, params=params, timeout=10)
-        if response.status_code == 200:
-            data = response.json()
-            articles = []
-            
-            for article in data.get('articles', []):
-                articles.append({
-                    'title': article.get('title', ''),
-                    'snippet': article.get('description', ''),
-                    'url': article.get('url', ''),
-                    'source': 'NewsAPI',
-                    'search_type': 'news'
-                })
-            
-            return articles
-        
-    except Exception as e:
-        print(f"NewsAPI search error: {e}")
-        
-    return []
-
-
-def get_source_credibility(url):
-    """Rate source credibility based on domain"""
+def get_source_credibility_multilingual(url, language='en'):
+    """Rate source credibility based on domain and language"""
     try:
         from urllib.parse import urlparse
         domain = urlparse(url).netloc.lower()
-        
-        # Remove www. prefix
         domain = domain.replace('www.', '')
         
+        # Check Nepali trusted sources
+        if language == 'ne' and any(trusted in domain for trusted in NEPALI_TRUSTED_SOURCES):
+            return 0.85  # High credibility for Nepali sources
+        
+        # Check international trusted sources
         if any(trusted in domain for trusted in TRUSTED_SOURCES):
             return 0.9  # High credibility
         elif any(unreliable in domain for unreliable in UNRELIABLE_SOURCES):
@@ -207,20 +299,21 @@ def get_source_credibility(url):
             return 0.95  # Very high credibility for fact-checkers
         elif domain.endswith('.gov') or domain.endswith('.edu'):
             return 0.85  # Government and educational sources
+        elif domain.endswith('.gov.np') or '.ac.np' in domain:
+            return 0.8   # Nepali government and academic sources
         else:
             return 0.6   # Neutral credibility
     except:
         return 0.5
 
 
-def enhanced_detect_stance(claim, article_text, title=""):
-    """Enhanced stance detection with better keyword analysis"""
+def enhanced_detect_stance_multilingual(claim, article_text, title="", language='en'):
+    """Enhanced multilingual stance detection"""
     try:
-        # Combine title and article for better context
         combined_text = f"{title} {article_text}".lower()
         claim_lower = claim.lower()
         
-        # Enhanced keyword lists with more specific patterns
+        # English keywords
         strong_refuting_words = [
             'false', 'fake', 'hoax', 'debunked', 'disproven', 'myth', 'untrue',
             'misleading', 'misinformation', 'fact-check reveals false', 'not true',
@@ -236,71 +329,61 @@ def enhanced_detect_stance(claim, article_text, title=""):
             'rating: true', 'mostly true', 'legitimate', 'substantiated'
         ]
         
-        moderate_refuting_words = [
-            'doubt', 'question', 'dispute', 'challenge', 'contradict',
-            'inconsistent', 'lacking evidence', 'unsubstantiated', 'skeptical',
-            'needs more evidence', 'insufficient proof', 'questionable'
-        ]
+        # Add language-specific keywords
+        if language == 'ne':
+            strong_refuting_words.extend(NEPALI_REFUTING_WORDS)
+            strong_supporting_words.extend(NEPALI_SUPPORTING_WORDS)
+        elif language == 'hi':
+            strong_refuting_words.extend(HINDI_REFUTING_WORDS)
+            strong_supporting_words.extend(HINDI_SUPPORTING_WORDS)
         
-        moderate_supporting_words = [
-            'supports', 'indicates', 'suggests', 'shows', 'demonstrates',
-            'research indicates', 'study shows', 'evidence suggests',
-            'data indicates', 'findings show'
-        ]
+        # If analyzing non-English content, try translation for better analysis
+        translated_text = combined_text
+        if language != 'en':
+            try:
+                translated_text = translate_text(combined_text, 'en', language).lower()
+            except:
+                pass
         
-        # Look for fact-checking verdict patterns
-        fact_check_patterns = [
-            r'rating:?\s*(false|true|mostly false|mostly true|pants on fire)',
-            r'verdict:?\s*(false|true|misleading|accurate)',
-            r'claim:?\s*.+?\s*(false|true|misleading|accurate)',
-            r'(this is|this claim is)\s*(false|true|misleading|accurate)'
-        ]
+        # Analyze both original and translated text
+        texts_to_analyze = [combined_text]
+        if language != 'en' and translated_text != combined_text:
+            texts_to_analyze.append(translated_text)
         
-        verdict_score = 0
-        for pattern in fact_check_patterns:
-            matches = re.findall(pattern, combined_text, re.IGNORECASE)
-            for match in matches:
-                if match.lower() in ['false', 'mostly false', 'pants on fire', 'misleading']:
-                    verdict_score -= 3
-                elif match.lower() in ['true', 'mostly true', 'accurate']:
-                    verdict_score += 3
+        total_refute = 0
+        total_support = 0
         
-        # Calculate weighted scores
-        strong_refute = sum(3 for word in strong_refuting_words if word in combined_text)
-        moderate_refute = sum(1 for word in moderate_refuting_words if word in combined_text)
-        strong_support = sum(3 for word in strong_supporting_words if word in combined_text)
-        moderate_support = sum(1 for word in moderate_supporting_words if word in combined_text)
+        for text in texts_to_analyze:
+            # Calculate scores for this text
+            refute_score = sum(3 for word in strong_refuting_words if word in text)
+            support_score = sum(3 for word in strong_supporting_words if word in text)
+            
+            total_refute += refute_score
+            total_support += support_score
         
-        # Add verdict score from fact-checking patterns
-        total_refute = strong_refute + moderate_refute + abs(min(0, verdict_score))
-        total_support = strong_support + moderate_support + max(0, verdict_score)
-        
-        # Check for direct contradictions with claim keywords
+        # Check for direct contradictions
         claim_keywords = set(word for word in claim_lower.split() if len(word) > 3)
         contradiction_boost = 0
-        for word in claim_keywords:
-            if f"not {word}" in combined_text or f"no {word}" in combined_text:
-                contradiction_boost += 2
-            if f"{word} is false" in combined_text or f"{word} are false" in combined_text:
-                contradiction_boost += 3
+        
+        for text in texts_to_analyze:
+            for word in claim_keywords:
+                if f"not {word}" in text or f"no {word}" in text:
+                    contradiction_boost += 2
+                if f"{word} is false" in text or f"{word} are false" in text:
+                    contradiction_boost += 3
         
         total_refute += contradiction_boost
         
-        # Look for source credibility indicators in the text itself
-        credibility_indicators = ['according to experts', 'scientists say', 'research shows', 'study finds']
-        credibility_boost = sum(1 for indicator in credibility_indicators if indicator in combined_text)
-        
-        # Determine stance with improved logic
+        # Determine stance
         if total_refute > total_support:
-            # Higher threshold for calling something false
             if total_refute >= total_support * 1.5:
-                confidence = min(0.95, 0.7 + (strong_refute * 0.05) + (contradiction_boost * 0.03))
+                confidence = min(0.95, 0.7 + (total_refute * 0.05))
                 return 'refutes', confidence
             else:
                 return 'neutral', 0.6
         elif total_support > total_refute:
             if total_support >= total_refute * 1.3:
-                confidence = min(0.95, 0.7 + (strong_support * 0.05) + (credibility_boost * 0.02))
+                confidence = min(0.95, 0.7 + (total_support * 0.05))
                 return 'supports', confidence
             else:
                 return 'neutral', 0.6
@@ -308,8 +391,146 @@ def enhanced_detect_stance(claim, article_text, title=""):
             return 'neutral', 0.5
             
     except Exception as e:
-        print(f"Enhanced stance detection error: {e}")
+        print(f"Multilingual stance detection error: {e}")
         return 'neutral', 0.5
+
+
+def calculate_similarity_multilingual(claim, article_text, language='en'):
+    """Calculate similarity with translation support"""
+    try:
+        if not article_text.strip():
+            return 0.0
+        
+        # For non-English content, try both original and translated versions
+        if language != 'en':
+            try:
+                claim_en = translate_text(claim, 'en', language)
+                article_en = translate_text(article_text, 'en', language)
+                
+                # Calculate similarity for both original and translated
+                orig_claim_embedding = similarity_model.encode([claim])
+                orig_article_embedding = similarity_model.encode([article_text])
+                orig_similarity = util.cos_sim(orig_claim_embedding, orig_article_embedding)[0][0].item()
+                
+                trans_claim_embedding = similarity_model.encode([claim_en])
+                trans_article_embedding = similarity_model.encode([article_en])
+                trans_similarity = util.cos_sim(trans_claim_embedding, trans_article_embedding)[0][0].item()
+                
+                # Return the higher similarity score
+                return max(orig_similarity, trans_similarity)
+                
+            except:
+                # Fallback to original language analysis
+                pass
+        
+        # Standard similarity calculation
+        claim_embedding = similarity_model.encode([claim])
+        article_embedding = similarity_model.encode([article_text])
+        similarity = util.cos_sim(claim_embedding, article_embedding)[0][0].item()
+        return similarity
+        
+    except Exception as e:
+        print(f"Multilingual similarity calculation error: {e}")
+        return 0.0
+
+
+@app.route('/api/verify', methods=['POST'])
+def verify_claim():
+    try:
+        data = request.get_json()
+        claim = data.get('claim', '').strip()
+        
+        if not claim:
+            return jsonify({'error': 'No claim provided'}), 400
+        
+        print(f"Fact-checking claim: {claim}")
+        
+        # Detect language
+        detected_language = detect_language(claim)
+        print(f"Detected language: {detected_language}")
+        
+        # Search with multilingual support
+        articles = search_google_custom_multilingual(claim, num_results=15, language=detected_language)
+        
+        if not articles:
+            return jsonify({
+                'verdict': 'insufficient_data',
+                'confidence': 0,
+                'credibility_score': 0,
+                'detected_language': detected_language,
+                'message': 'No relevant articles found',
+                'analysis': []
+            })
+        
+        # Analyze each article with multilingual methods
+        articles_analysis = []
+        for article in articles:
+            content = fetch_article_content(article['url'])
+            if content:
+                similarity = calculate_similarity_multilingual(claim, content, detected_language)
+                stance, stance_confidence = enhanced_detect_stance_multilingual(
+                    claim, content, article['title'], detected_language
+                )
+                source_credibility = get_source_credibility_multilingual(
+                    article['url'], detected_language
+                )
+                
+                # Only include articles with reasonable similarity
+                if similarity > 0.2:
+                    articles_analysis.append({
+                        'title': article['title'],
+                        'url': article['url'],
+                        'snippet': article['snippet'][:300],
+                        'similarity': round(similarity, 3),
+                        'stance': stance,
+                        'stance_confidence': round(stance_confidence, 2),
+                        'source_credibility': round(source_credibility, 2),
+                        'relevance': 'high' if similarity > 0.7 else 'medium' if similarity > 0.4 else 'low',
+                        'search_type': article.get('search_type', 'original'),
+                        'language': article.get('language', detected_language)
+                    })
+        
+        print(f"Analyzed {len(articles_analysis)} relevant articles")
+        
+        # Calculate overall credibility
+        result = analyze_enhanced_credibility(articles_analysis, claim)
+        result['analysis'] = sorted(articles_analysis, key=lambda x: x['similarity'], reverse=True)
+        result['claim'] = claim
+        result['detected_language'] = detected_language
+        result['timestamp'] = datetime.now().isoformat()
+        result['search_engine'] = 'Google' if GOOGLE_API_KEY else 'DuckDuckGo'
+        
+        # Add language-specific message
+        if detected_language == 'ne':
+            result['language_note'] = 'नेपाली भाषामा विश्लेषण गरिएको'
+        elif detected_language == 'hi':
+            result['language_note'] = 'हिंदी भाषा में विश्लेषण'
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        print(f"Verification error: {e}")
+        return jsonify({'error': f'Internal server error: {str(e)}'}), 500
+
+
+def search_google_custom(query, num_results=10):
+    """Legacy function - redirects to multilingual version"""
+    return search_google_custom_multilingual(query, num_results, 'en')
+
+
+def search_web_ddgs(query, num_results=15):
+    """Legacy function - redirects to multilingual version"""
+    return search_web_ddgs_multilingual(query, num_results, 'en')
+
+
+def get_source_credibility(url):
+    """Legacy function - redirects to multilingual version"""
+    return get_source_credibility_multilingual(url, 'en')
+
+
+def enhanced_detect_stance(claim, article_text, title=""):
+    """Legacy function - redirects to multilingual version"""
+    return enhanced_detect_stance_multilingual(claim, article_text, title, 'en')
 
 
 def analyze_enhanced_credibility(articles_analysis, claim):
@@ -339,7 +560,7 @@ def analyze_enhanced_credibility(articles_analysis, claim):
         # Boost fact-checking articles
         if article.get('search_type') == 'fact_check':
             fact_check_articles += 1
-            base_weight *= 2.0  # Give more weight to fact-checking articles
+            base_weight *= 2.0
         
         # Boost high similarity articles
         if article['similarity'] > 0.6:
@@ -350,12 +571,11 @@ def analyze_enhanced_credibility(articles_analysis, claim):
         stance_weight = base_weight * article['stance_confidence']
         
         if article['stance'] == 'refutes':
-            # Give slightly more weight to refuting evidence to counteract bias
             weighted_refuting += stance_weight * 1.1
         elif article['stance'] == 'supports':
             weighted_supporting += stance_weight
         else:
-            weighted_neutral += base_weight * 0.5  # Reduce neutral weight
+            weighted_neutral += base_weight * 0.5
             
         total_credibility += article['source_credibility']
     
@@ -366,16 +586,15 @@ def analyze_enhanced_credibility(articles_analysis, claim):
         verdict = 'insufficient_data'
         confidence = 0
         credibility_score = 0
-    elif weighted_refuting > weighted_supporting * 1.1:  # Lowered threshold for false detection
+    elif weighted_refuting > weighted_supporting * 1.1:
         verdict = 'likely_false'
         confidence = min(95, (weighted_refuting / total_weighted) * 100)
         credibility_score = max(5, 100 - confidence)
         
-        # Boost confidence if we have fact-checking articles that refute
         if fact_check_articles > 0:
             confidence = min(95, confidence * 1.2)
             
-    elif weighted_supporting > weighted_refuting * 1.3:  # Higher threshold for true claims
+    elif weighted_supporting > weighted_refuting * 1.3:
         verdict = 'likely_true'
         confidence = min(95, (weighted_supporting / total_weighted) * 100)
         credibility_score = min(95, confidence)
@@ -411,73 +630,12 @@ def analyze_enhanced_credibility(articles_analysis, claim):
     }
 
 
-@app.route('/api/verify', methods=['POST'])
-def verify_claim():
-    try:
-        data = request.get_json()
-        claim = data.get('claim', '').strip()
-        
-        if not claim:
-            return jsonify({'error': 'No claim provided'}), 400
-        
-        print(f"Fact-checking claim: {claim}")
-        
-        # Try Google search first, fall back to DuckDuckGo
-        articles = search_google_custom(claim, num_results=15)
-        
-        if not articles:
-            return jsonify({
-                'verdict': 'insufficient_data',
-                'confidence': 0,
-                'credibility_score': 0,
-                'message': 'No relevant articles found',
-                'analysis': []
-            })
-        
-        # Analyze each article with enhanced methods
-        articles_analysis = []
-        for article in articles:
-            content = fetch_article_content(article['url'])
-            if content:
-                similarity = calculate_similarity(claim, content)
-                stance, stance_confidence = enhanced_detect_stance(claim, content, article['title'])
-                source_credibility = get_source_credibility(article['url'])
-                
-                # Only include articles with reasonable similarity
-                if similarity > 0.2:
-                    articles_analysis.append({
-                        'title': article['title'],
-                        'url': article['url'],
-                        'snippet': article['snippet'][:300],
-                        'similarity': round(similarity, 3),
-                        'stance': stance,
-                        'stance_confidence': round(stance_confidence, 2),
-                        'source_credibility': round(source_credibility, 2),
-                        'relevance': 'high' if similarity > 0.7 else 'medium' if similarity > 0.4 else 'low',
-                        'search_type': article.get('search_type', 'original')
-                    })
-        
-        print(f"Analyzed {len(articles_analysis)} relevant articles")
-        
-        # Calculate overall credibility with enhanced analysis
-        result = analyze_enhanced_credibility(articles_analysis, claim)
-        result['analysis'] = sorted(articles_analysis, key=lambda x: x['similarity'], reverse=True)
-        result['claim'] = claim
-        result['timestamp'] = datetime.now().isoformat()
-        result['search_engine'] = 'Google' if GOOGLE_API_KEY else 'DuckDuckGo'
-        
-        return jsonify(result)
-        
-    except Exception as e:
-        print(f"Verification error: {e}")
-        return jsonify({'error': f'Internal server error: {str(e)}'}), 500
-
-
 @app.route('/', methods=['GET'])
 def home():
     return jsonify({
-        'message': 'AI Fact Checker API',
-        'version': '2.0',
+        'message': 'AI Fact Checker API (Multilingual)',
+        'version': '2.1',
+        'languages': ['English', 'Nepali', 'Hindi'],
         'search_engine': 'Google' if GOOGLE_API_KEY else 'DuckDuckGo',
         'endpoints': {
             'health': '/api/health',
@@ -492,6 +650,7 @@ def health_check():
         'status': 'healthy',
         'models_loaded': True,
         'google_configured': bool(GOOGLE_API_KEY and GOOGLE_CX),
+        'languages_supported': ['en', 'ne', 'hi'],
         'timestamp': datetime.now().isoformat()
     })
 
@@ -521,21 +680,12 @@ def fetch_article_content(url, max_chars=3000):
 
 
 def calculate_similarity(claim, article_text):
-    """Calculate semantic similarity between claim and article"""
-    try:
-        if not article_text.strip():
-            return 0.0
-            
-        claim_embedding = similarity_model.encode([claim])
-        article_embedding = similarity_model.encode([article_text])
-        similarity = util.cos_sim(claim_embedding, article_embedding)[0][0].item()
-        return similarity
-    except Exception as e:
-        print(f"Similarity calculation error: {e}")
-        return 0.0
+    """Legacy function - redirects to multilingual version"""
+    return calculate_similarity_multilingual(claim, article_text, 'en')
 
 
 if __name__ == '__main__':
-    print("Starting Enhanced Misinformation Detection API...")
+    print("Starting Enhanced Multilingual Misinformation Detection API...")
+    print(f"Languages: English, Nepali, Hindi")
     print(f"Google Search: {'Configured' if GOOGLE_API_KEY else 'Not configured, using DuckDuckGo'}")
     app.run(debug=True, host='0.0.0.0', port=5000)
