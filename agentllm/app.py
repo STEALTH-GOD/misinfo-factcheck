@@ -1,7 +1,12 @@
 from dotenv import load_dotenv
-load_dotenv()                      
+load_dotenv()
 
-import os, json, time, random
+import os
+import json
+import time
+import random
+import traceback
+from typing import List, Dict, Optional
 from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -35,6 +40,8 @@ def root():
         "status": "running",
         "endpoints": {
             "verify_claim": "/api/verify_claim",
+            "latest_news": "/api/latest_news",
+            "news_detail": "/api/news/{news_id}",
             "docs": "/docs",
             "openapi": "/openapi.json"
         }
@@ -43,209 +50,151 @@ def root():
 @app.post('/api/verify_claim')
 def verify_claim(req: ClaimRequest):
     """
-    Verify a user claim by searching for evidence from multiple whitelisted sources.
-    
-    Process:
-    1. Search Google for up to 10 results related to the claim
-    2. Filter results to only include whitelisted domains  
-    3. Rank the evidence by similarity to the claim
-    4. Select top 6 most relevant sources
-    5. Send to LLM for analysis
-    6. Return analysis with all evidence sources preserved
+    Verify a claim by searching for evidence from whitelisted sources and analyzing with LLM.
     """
-    claim = req.claim.strip()
-    if not claim:
-        raise HTTPException(status_code=400, detail='Empty claim')
-    
-    # Use the enhanced authoritative source finder
-    evidence_items = _find_authoritative_sources(claim, max_sources=6)
-    
-    if not evidence_items:
-        # Fallback to original search method if enhanced search fails
-        try:
-            results = google_search(claim, num=10)
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
-        filtered = []
-        for r in results:
-            host = domain_from_url(r.get('link',''))
-            if host in ALLOWED_DOMAINS or any(host.endswith(d) for d in ALLOWED_DOMAINS):
-                text = fetch_page_text(r.get('link',''))
-                filtered.append({'title': r.get('title'), 'link': r.get('link'), 'text': text})
-        if not filtered:
-            raise HTTPException(status_code=404, detail='No whitelisted evidence found')
-        ranked = rank_evidence_by_similarity(claim, filtered, top_k=6)
-        evidence_items = []
-        for item in ranked:
-            snippet = (item.get('text') or '')[:800]
-            evidence_items.append({
-                'source': item.get('link',''), 
-                'url': item.get('link',''), 
-                'snippet': snippet,
-                'title': item.get('title', 'Source Article')
-            })
-    
-    res = call_groq(claim, evidence_items, lang=req.lang)
-    
-    # Ensure all evidence sources are included in the response
-    if 'evidence' not in res:
-        res['evidence'] = []
-    
-    # Add our evidence items with proper URLs to the response
-    res['evidence'] = evidence_items
-    
-    return {'result': res}
-
-
-def _convert_filename_to_url(filename):
-    """
-    Convert cached filename back to original article URL.
-    Example: https_english.nepalnews.com_economic_reforms_2025.txt -> https://english.nepalnews.com/economic_reforms_2025
-    """
-    if not filename.startswith('https_') or not filename.endswith('.txt'):
-        return None
-    
-    # Remove .txt extension
-    url_part = filename.replace('.txt', '')
-    
-    # Remove https_ prefix
-    url_without_protocol = url_part.replace('https_', '')
-    
-    # Handle specific domain patterns we know about
-    domain = None
-    path = None
-    
-    if url_without_protocol.startswith('english.nepalnews.com_'):
-        domain = 'english.nepalnews.com'
-        path_part = url_without_protocol[len('english.nepalnews.com_'):]
-        path = path_part.replace('_', '/')
-    elif url_without_protocol.startswith('kathmandu_post_com_'):
-        domain = 'kathmandupost.com'
-        path_part = url_without_protocol[len('kathmandu_post_com_'):]
-        path = path_part.replace('_', '/')
-    elif url_without_protocol.startswith('myrepublica_com_'):
-        domain = 'myrepublica.com'
-        path_part = url_without_protocol[len('myrepublica_com_'):]
-        path = path_part.replace('_', '/')
-    elif url_without_protocol.startswith('nepali_times_com_'):
-        domain = 'nepalitimes.com'
-        path_part = url_without_protocol[len('nepali_times_com_'):]
-        path = path_part.replace('_', '/')
-    elif url_without_protocol.startswith('online_khabar_com_'):
-        domain = 'english.onlinekhabar.com'
-        path_part = url_without_protocol[len('online_khabar_com_'):]
-        path = path_part.replace('_', '/')
-    elif url_without_protocol.startswith('en.setopati.com_'):
-        domain = 'en.setopati.com'
-        path_part = url_without_protocol[len('en.setopati.com_'):]
-        path = path_part.replace('_', '/')
-    else:
-        # Generic fallback - try to reconstruct from underscore-separated parts
-        parts = url_without_protocol.split('_')
-        if len(parts) >= 3:
-            # Try to identify domain pattern: subdomain_domain_tld_path...
-            # Look for 'com', 'org', 'net', 'gov' as TLD indicators
-            tld_index = -1
-            for i, part in enumerate(parts):
-                if part in ['com', 'org', 'net', 'gov', 'np']:
-                    tld_index = i
-                    break
-            
-            if tld_index >= 1:
-                # Reconstruct domain
-                domain_parts = parts[:tld_index+1]
-                path_parts = parts[tld_index+1:] if tld_index+1 < len(parts) else []
-                
-                # Convert domain parts back to dots
-                domain = '.'.join(domain_parts)
-                path = '/'.join(path_parts) if path_parts else ''
-            else:
-                return None
-        else:
-            return None
-    
-    # Construct final URL
-    url = f"https://{domain}"
-    if path:
-        url += f"/{path}"
-    
-    return url
-
-
-def _find_authoritative_sources(claim, max_sources=5):
-    """
-    Search for authoritative news sources related to a claim.
-    Returns a list of evidence items with real URLs and content.
-    """
-    evidence_items = []
-    
     try:
-        # Search for news about this claim
-        search_results = google_search(claim, num=8)
+        claim = req.claim.strip()
+        if not claim:
+            raise HTTPException(status_code=400, detail='Empty claim')
         
-        # Prioritize sources by reliability
-        priority_domains = [
-            'bbc.com', 'reuters.com', 'cnn.com', 'npr.org', 'apnews.com',
-            'kathmandupost.com', 'myrepublica.nagariknetwork.com', 
-            'nepalitimes.com', 'english.onlinekhabar.com'
-        ]
+        print(f"\n{'='*60}")
+        print(f"Processing claim: {claim}")
+        print(f"{'='*60}")
         
-        # First pass: look for high-priority sources
-        for result in search_results:
-            result_url = result.get('link', '')
-            result_domain = domain_from_url(result_url)
+        evidence_items = []
+        
+        # Step 1: Search for evidence
+        try:
+            print("Step 1: Searching Google for evidence...")
+            search_results = google_search(claim, num=8)
+            print(f"  Found {len(search_results)} search results")
             
-            if any(priority_domain in result_domain for priority_domain in priority_domains):
-                if result_domain in ALLOWED_DOMAINS or any(result_domain.endswith(d) for d in ALLOWED_DOMAINS):
-                    try:
+            # Step 2: Filter and fetch content from whitelisted domains
+            print("Step 2: Filtering whitelisted sources...")
+            for idx, result in enumerate(search_results, 1):
+                try:
+                    result_url = result.get('link', '')
+                    result_domain = domain_from_url(result_url)
+                    result_title = result.get('title', 'Untitled')
+                    
+                    # Normalize domain by removing www. prefix for comparison
+                    normalized_domain = result_domain.replace('www.', '').replace('co.uk', 'com')
+                    
+                    # Check if domain is whitelisted (handle www. prefix)
+                    is_whitelisted = False
+                    for allowed_domain in ALLOWED_DOMAINS:
+                        normalized_allowed = allowed_domain.replace('www.', '').replace('co.uk', 'com')
+                        if normalized_domain == normalized_allowed or normalized_domain.endswith('.' + normalized_allowed):
+                            is_whitelisted = True
+                            break
+                    
+                    if is_whitelisted:
+                        print(f"  [{idx}] ✓ Whitelisted: {result_domain}")
+                        print(f"      Title: {result_title[:80]}")
+                        
+                        # Fetch page content
                         content = fetch_page_text(result_url)
-                        if content and len(content) > 200:
+                        if content and len(content) > 100:
                             evidence_items.append({
                                 'source': result_url,
                                 'url': result_url,
                                 'snippet': content[:800],
-                                'title': result.get('title', 'News Article'),
+                                'title': result_title,
                                 'domain': result_domain
                             })
+                            print(f"      Content fetched: {len(content)} chars")
                             
-                            if len(evidence_items) >= max_sources:
-                                return evidence_items
-                    except Exception:
-                        continue
-        
-        # Second pass: any remaining whitelisted sources
-        for result in search_results:
-            if len(evidence_items) >= max_sources:
-                break
-                
-            result_url = result.get('link', '')
-            result_domain = domain_from_url(result_url)
-            
-            # Skip if we already added this domain
-            if any(item.get('domain') == result_domain for item in evidence_items):
-                continue
-            
-            if result_domain in ALLOWED_DOMAINS or any(result_domain.endswith(d) for d in ALLOWED_DOMAINS):
-                try:
-                    content = fetch_page_text(result_url)
-                    if content and len(content) > 200:
-                        evidence_items.append({
-                            'source': result_url,
-                            'url': result_url,
-                            'snippet': content[:800],
-                            'title': result.get('title', 'News Article'),
-                            'domain': result_domain
-                        })
-                except Exception:
+                            if len(evidence_items) >= 6:
+                                break
+                        else:
+                            print(f"      ✗ Content too short or empty")
+                    else:
+                        print(f"  [{idx}] ✗ Not whitelisted: {result_domain}")
+                        
+                except Exception as e:
+                    print(f"  [{idx}] ✗ Error processing result: {str(e)}")
                     continue
-                    
+            
+            print(f"\nStep 3: Collected {len(evidence_items)} evidence sources")
+            
+        except Exception as e:
+            print(f"✗ Search error: {str(e)}")
+            traceback.print_exc()
+        
+        # Step 3: If no evidence found, provide fallback
+        if not evidence_items:
+            print("⚠ No evidence found, using fallback response")
+            evidence_items = [{
+                'source': 'Search incomplete',
+                'url': '',
+                'snippet': 'Unable to find sufficient evidence from whitelisted sources. The claim could not be verified.',
+                'title': 'No Sources Found'
+            }]
+        
+        # Step 4: Call LLM for analysis
+        print(f"Step 4: Analyzing with LLM...")
+        try:
+            analysis = call_groq(claim, evidence_items, lang=req.lang)
+            print(f"  Verdict: {analysis.get('verdict', 'UNCLEAR')}")
+            print(f"  Confidence: {analysis.get('confidence', 0)}")
+        except Exception as e:
+            print(f"✗ LLM analysis error: {str(e)}")
+            traceback.print_exc()
+            analysis = {
+                'verdict': 'UNCLEAR',
+                'confidence': 0.0,
+                'explanation': f'Analysis unavailable: {str(e)}',
+                'evidence': []
+            }
+        
+        # Step 5: Prepare response
+        if 'evidence' not in analysis:
+            analysis['evidence'] = []
+        analysis['evidence'] = evidence_items
+        
+        print(f"{'='*60}")
+        print(f"✓ Claim verification complete")
+        print(f"{'='*60}\n")
+        
+        return {'result': analysis}
+        
+    except HTTPException:
+        raise
     except Exception as e:
-        print(f"Error finding authoritative sources: {e}")
+        print(f"\n✗ FATAL ERROR in verify_claim: {str(e)}")
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=500, 
+            detail=f'Internal server error: {str(e)}'
+        )
+
+
+def _convert_filename_to_url(filename: str) -> Optional[str]:
+    """Convert cached filename back to original URL."""
+    if not filename.startswith('https_') or not filename.endswith('.txt'):
+        return None
     
-    return evidence_items
+    url_part = filename.replace('.txt', '').replace('https_', '')
+    
+    # Try specific domain patterns first
+    domain_mappings = {
+        'english.nepalnews.com_': 'english.nepalnews.com',
+        'kathmandupost.com_': 'kathmandupost.com',
+        'myrepublica.com_': 'myrepublica.com',
+        'nepalitimes.com_': 'nepalitimes.com',
+        'english.onlinekhabar.com_': 'english.onlinekhabar.com',
+        'en.setopati.com_': 'en.setopati.com'
+    }
+    
+    for prefix, domain in domain_mappings.items():
+        if url_part.startswith(prefix):
+            path = url_part[len(prefix):].replace('_', '/')
+            return f"https://{domain}/{path}" if path else f"https://{domain}"
+    
+    return None
 
 
-def _determine_verification_status(title, source_name):
+def _determine_verification_status(title: str, source_name: str) -> str:
     """
     Enhanced heuristic to determine verification status with more variety.
     """
@@ -647,32 +596,28 @@ def news_detail(news_id: str):
             'source': source_url, 
             'url': source_url, 
             'snippet': full[:800],
-            'title': f'Original: {title[:100]}...' if len(title) > 100 else title
+            'title': title
         })
     else:
         # If no URL mapping found, create a fallback with source name but no URL
         evidence_items.append({
-            'source': source_name, 
+            'source': match.get('source', 'Unknown Source'), 
             'url': '', 
             'snippet': full[:800],
-            'title': f'Cached: {title[:100]}...' if len(title) > 100 else title
+            'title': title
         })
-    
-    # Try to find additional authoritative sources about this topic
-    try:
-        additional_sources = _find_authoritative_sources(title, max_sources=4)
-        # Add unique sources (avoid duplicating the original source)
-        for additional_source in additional_sources:
-            if not any(additional_source.get('url') == existing.get('url') for existing in evidence_items):
-                evidence_items.append(additional_source)
-                if len(evidence_items) >= 5:  # Limit to 5 total sources
-                    break
-    except Exception as e:
-        print(f"Could not find additional sources: {e}")
-        # Continue with just the original source
 
-    # Call LLM analysis - this will return UNCLEAR if GROQ keys not configured
-    analysis = call_groq(title, evidence_items, lang='ne')
+    # Call LLM analysis
+    try:
+        analysis = call_groq(title, evidence_items, lang='ne')
+    except Exception as e:
+        print(f"Error in LLM analysis: {e}")
+        analysis = {
+            'verdict': 'UNCLEAR',
+            'confidence': 0.0,
+            'explanation': 'Unable to perform analysis at this time.',
+            'evidence': []
+        }
     
     # Ensure the evidence items with URLs are included in the response
     if 'evidence' not in analysis:
