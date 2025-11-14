@@ -1,0 +1,96 @@
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: E2_HIGHCPU_8
+
+steps:
+  # 1. Build backend image
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -t
+      - gcr.io/$PROJECT_ID/factcheck-backend:$BUILD_ID
+      - -t
+      - gcr.io/$PROJECT_ID/factcheck-backend:latest
+      - ./agentllm
+    timeout: 1800s
+
+  # 2. Push backend images
+  - name: gcr.io/cloud-builders/docker
+    args: ["push", "gcr.io/$PROJECT_ID/factcheck-backend:$BUILD_ID"]
+  - name: gcr.io/cloud-builders/docker
+    args: ["push", "gcr.io/$PROJECT_ID/factcheck-backend:latest"]
+
+  # 3. Deploy backend with generous resources
+  - name: gcr.io/cloud-builders/gcloud
+    args:
+      - run
+      - deploy
+      - factcheck-backend
+      - --image=gcr.io/$PROJECT_ID/factcheck-backend:$BUILD_ID
+      - --region=us-central1
+      - --platform=managed
+      - --allow-unauthenticated
+      - --update-secrets=GOOGLE_CSE_API_KEY=GOOGLE_CSE_API_KEY:latest
+      - --update-secrets=GOOGLE_CSE_ID=GOOGLE_CSE_ID:latest
+      - --update-secrets=GROQ_API_KEY=GROQ_API_KEY:latest
+      - --update-secrets=GROQ_MODEL=GROQ_MODEL:latest
+      - --update-secrets=ALLOWED_SOURCES=ALLOWED_SOURCES:latest
+      - --cpu=4
+      - --memory=8Gi
+      - --timeout=600
+      - --port=8000
+      - --max-instances=3
+      - --min-instances=0
+    timeout: 1200s
+
+  # 4. Capture backend URL
+  - name: gcr.io/cloud-builders/gcloud
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        gcloud run services describe factcheck-backend --region=us-central1 --format='value(status.url)' > backend_url.txt
+        echo "Backend URL: $$(cat backend_url.txt)"
+
+  # 5. Build frontend
+  - name: gcr.io/cloud-builders/docker
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        BACKEND_URL="$$(cat backend_url.txt)"
+        echo "Building frontend with REACT_APP_API_URL=$${BACKEND_URL}"
+        docker build \
+          -t gcr.io/$PROJECT_ID/factcheck-frontend:$BUILD_ID \
+          -t gcr.io/$PROJECT_ID/factcheck-frontend:latest \
+          --build-arg REACT_APP_API_URL=$${BACKEND_URL} \
+          ./frontend
+    timeout: 900s
+
+  # 6. Push frontend images
+  - name: gcr.io/cloud-builders/docker
+    args: ["push", "gcr.io/$PROJECT_ID/factcheck-frontend:$BUILD_ID"]
+  - name: gcr.io/cloud-builders/docker
+    args: ["push", "gcr.io/$PROJECT_ID/factcheck-frontend:latest"]
+
+  # 7. Deploy frontend
+  - name: gcr.io/cloud-builders/gcloud
+    args:
+      - run
+      - deploy
+      - factcheck-frontend
+      - --image=gcr.io/$PROJECT_ID/factcheck-frontend:$BUILD_ID
+      - --region=us-central1
+      - --platform=managed
+      - --allow-unauthenticated
+      - --memory=512Mi
+      - --port=80
+    timeout: 600s
+
+images:
+  - gcr.io/$PROJECT_ID/factcheck-backend:$BUILD_ID
+  - gcr.io/$PROJECT_ID/factcheck-backend:latest
+  - gcr.io/$PROJECT_ID/factcheck-frontend:$BUILD_ID
+  - gcr.io/$PROJECT_ID/factcheck-frontend:latest
+
+timeout: 3600s

@@ -17,10 +17,16 @@ from agent.llm_agent import call_groq
 
 app = FastAPI(title='MisInfoDetectAI')
 
-# Add CORS middleware
+# CORS settings
+FRONTEND_ORIGINS = os.getenv("ALLOWED_ORIGINS", "*")
+if FRONTEND_ORIGINS == "*":
+    origins = ["*"]
+else:
+    origins = [o.strip() for o in FRONTEND_ORIGINS.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -63,11 +69,25 @@ def verify_claim(req: ClaimRequest):
         
         evidence_items = []
         
-        # Step 1: Search for evidence
+        # Step 1: Search for evidence - prioritize local Nepali sources
         try:
             print("Step 1: Searching Google for evidence...")
-            search_results = google_search(claim, num=8)
-            print(f"  Found {len(search_results)} search results")
+            
+            # First, search specifically on Nepali news sites
+            nepali_sites = ['kathmandupost.com', 'setopati.com', 'onlinekhabar.com', 
+                           'ekantipur.com', 'myrepublica.nagariknetwork.com', 'nepalnews.com']
+            site_query = f"{claim} (site:{' OR site:'.join(nepali_sites)})"
+            
+            local_results = google_search(site_query, num=5)
+            print(f"  Found {len(local_results)} local Nepali sources")
+            
+            # Then do a general search for international sources
+            general_results = google_search(claim, num=5)
+            print(f"  Found {len(general_results)} general sources")
+            
+            # Combine results, prioritizing local sources
+            search_results = local_results + general_results
+            print(f"  Total: {len(search_results)} search results")
             
             # Step 2: Filter and fetch content from whitelisted domains
             print("Step 2: Filtering whitelisted sources...")
@@ -637,4 +657,4 @@ def news_detail(news_id: str):
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8000)

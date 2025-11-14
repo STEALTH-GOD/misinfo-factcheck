@@ -1,7 +1,7 @@
 import React from "react";
 
 const ConfidenceScore = ({confidence}) => {
-  const percentage = Math.round(confidence * 100);
+  const percentage = Math.round(confidence);
 
   const getColorClass = (score) => {
     if (score >= 80) return "text-green-600";

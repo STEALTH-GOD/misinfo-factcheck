@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./agentllm
+      dockerfile: Dockerfile
+    container_name: factcheck-backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./agentllm/.env
+    volumes:
+      - ./agentllm/data:/app/data
+    networks:
+      - factcheck-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - REACT_APP_API_URL=http://localhost:8000
+    container_name: factcheck-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - factcheck-network
+    restart: unless-stopped
+
+networks:
+  factcheck-network:
+    driver: bridge
+
+volumes:
+  backend-data:

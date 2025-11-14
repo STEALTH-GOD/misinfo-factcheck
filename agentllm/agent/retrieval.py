@@ -2,13 +2,22 @@ import os, requests, json, time
 from urllib.parse import urlparse
 from bs4 import BeautifulSoup
 from pathlib import Path
-from sentence_transformers import SentenceTransformer
 import numpy as np
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 CACHE_DIR = Path(os.getenv('CACHE_DIR', BASE_DIR / 'data' / 'cache'))
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
-MODEL = SentenceTransformer('all-mpnet-base-v2')
+
+# Don't import or load model here - do it in a function
+MODEL = None
+
+def _get_model():
+    """Load model only when needed"""
+    global MODEL
+    if MODEL is None:
+        from sentence_transformers import SentenceTransformer
+        MODEL = SentenceTransformer('all-MiniLM-L6-v2')  # Smaller model
+    return MODEL
 
 def domain_from_url(url):
     try:
@@ -17,6 +26,8 @@ def domain_from_url(url):
         return ''
 
 def load_whitelist(path=BASE_DIR / 'data' / 'curated_sources.json'):
+    if not os.path.exists(path):
+        return set()
     with open(path, 'r', encoding='utf-8') as f:
         cfg = json.load(f)
     domains = set()
@@ -65,9 +76,13 @@ def fetch_page_text(url):
         return ''
 
 def rank_evidence_by_similarity(claim, candidates, top_k=5):
-    claim_emb = MODEL.encode([claim], convert_to_numpy=True)[0]
+    if not candidates:
+        return []
+    
+    model = _get_model()  # Load model when this function is called
+    claim_emb = model.encode([claim], convert_to_numpy=True)[0]
     texts = [c.get('text','')[:10000] for c in candidates]
-    embeddings = MODEL.encode(texts, convert_to_numpy=True)
+    embeddings = model.encode(texts, convert_to_numpy=True)
     sims = []
     for idx, emb in enumerate(embeddings):
         score = float(np.dot(claim_emb, emb) / (np.linalg.norm(claim_emb) * np.linalg.norm(emb) + 1e-12))

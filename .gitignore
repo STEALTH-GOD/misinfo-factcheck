@@ -1,3 +1,8 @@
+# Environment files
+.env
+.env.local
+.env.*.local
+
 # Python
 __pycache__/
 *.py[cod]
@@ -19,54 +24,31 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-MANIFEST
 
-# Virtual Environment
-venv/
-ENV/
-env/
-.venv/
-backend/venv/
-
-# Node modules
+# Node
 node_modules/
-frontend/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+/frontend/build/
 
-# Environment Variables
-.env
-*.env
-
-# IDE
+# IDEs
 .vscode/
 .idea/
 *.swp
 *.swo
+*~
 
 # OS
 .DS_Store
 Thumbs.db
 
-# Logs
+# Data cache
+
+# Test files
+test_*.py
 *.log
 
-# Database
-*.db
-*.sqlite3
-
-# Production builds
-frontend/build/
-frontend/dist/
-
-# Large files
-*.dll
-*.so
-*.dylib
-models/
-*.bin
-*.h5
-*.pkl
-
-# Temporary files
-temp/
-tmp/
-*.tmp
+# Docker
+*.tar
+*.tar.gz
