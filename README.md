@@ -47,11 +47,6 @@ cp frontend/.env.example frontend/.env
 docker-compose up --build
 ```
 
-4. Access the application
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:8000
-- API Docs: http://localhost:8000/docs
-
 ### Development Mode
 
 **Backend:**
@@ -86,11 +81,3 @@ misinfo-factcheck/
 ├── docker-compose.yml # Local development orchestration
 └── cloudbuild.yaml    # Google Cloud Build config
 ```
-
-## API Documentation
-
-Once running, visit http://localhost:8000/docs for interactive API documentation.
-
-## License
-
-MIT
